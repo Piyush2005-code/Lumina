@@ -24,12 +24,12 @@ async def main():
 
 
         tools = await client.list_tools()
+
         print([{
             "tool_name" : tool.name,
             "tool_description" : tool.description,
             "input_Schema" : tool.inputSchema
             } for tool in tools])
-
 
         toolList = [
                 types.Tool(
@@ -45,8 +45,9 @@ async def main():
                             }
                         ]
                     )
-                for tool in tools
-                ]
+            for tool in tools
+        ]
+
         user_query = input("Enter the query which you want to ask to the LLM")
 
         resonse = await gemini_client.models.generate_content(
