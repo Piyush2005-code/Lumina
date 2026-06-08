@@ -1,94 +1,83 @@
 """
-Orchestrator Proxy Server
-=========================
-A single FastMCP server that composes both autoGuiMCP and shellMCP into one
-unified endpoint.  Clients (e.g. Claude Code) connect to this one server
-and get access to every tool from every sub-server, each scoped under its
-own namespace to avoid naming collisions.
+Lumina Orchestrator — proxy_server.py
+======================================
+Composes autoGuiMCP and shellMCP into a single HTTP MCP endpoint.
 
-Architecture:
-  ┌─────────────────────────────────────────────────────┐
-  │            proxy_server.py  (port 8082)              │
-  │                                                      │
-  │  namespace "autogui"  ◄──stdio──► autoGuiMCP/server  │
-  │  namespace "shell"    ◄──stdio──► shellMCP/server    │
-  └─────────────────────────────────────────────────────┘
+FastMCP v3 API used here:
+  - create_proxy(transport)          from fastmcp.server
+  - PythonStdioTransport(...)        from fastmcp.client.transports
+  - orchestrator.mount(proxy, namespace="name")
 
-How to run:
+Run:
     python proxy_server.py
 
-Then add to Claude Code's MCP config (or ~/.claude.json):
-    {
-      "orchestrator": {
-        "type": "http",
-        "url": "http://localhost:8082/mcp"
-      }
-    }
+Then connect Claude Code (or your FastAPI backend) to:
+    http://127.0.0.1:8082/mcp
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
+
 from fastmcp import FastMCP
+from fastmcp.server import create_proxy
+from fastmcp.client.transports import PythonStdioTransport
 
-# ── Resolve paths relative to this file so the server can be run from anywhere ──
-SERVERS_DIR = Path(__file__).parent
-VENV_PYTHON = Path(__file__).parents[3] / "venv" / "bin" / "python"  # adjust if needed
-
-# Use the venv python that has the dependencies, falling back to current interpreter
+# ── Paths ─────────────────────────────────────────────────────────────────────
+SERVERS_DIR = Path(__file__).parent.resolve()
+VENV_PYTHON = SERVERS_DIR.parents[2] / "venv" / "bin" / "python"
 PYTHON = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
+AUTOGUI_SCRIPT = SERVERS_DIR / "autoGuiMCP" / "server.py"
+SHELL_SCRIPT   = SERVERS_DIR / "shellMCP"   / "server.py"
 
-# ── Sub-server definitions ────────────────────────────────────────────────────
-# Each entry: (namespace, command, args)
-# These are launched as subprocesses communicating over stdio (MCP default transport)
-SUB_SERVERS = [
-    {
-        "namespace": "autogui",
-        "command": PYTHON,
-        "args": [str(SERVERS_DIR / "autoGuiMCP" / "server.py")],
-        "env": None,   # inherits current env; set a dict to override
-    },
-    {
-        "namespace": "shell",
-        "command": PYTHON,
-        "args": [str(SERVERS_DIR / "shellMCP" / "server.py")],
-        "env": None,
-    },
-]
-
-
+# ── Orchestrator ──────────────────────────────────────────────────────────────
 orchestrator = FastMCP(
-    name="Orchestrator",
+    name="LuminaOrchestrator",
     instructions=(
-        "You are connected to the Lumina orchestrator. "
-        "Tools are namespaced: use 'autogui_*' for GUI automation "
-        "and 'shell_*' for shell commands."
+        "Single entry-point for all Lumina tools. "
+        "Tools are namespaced: 'autogui_*' for GUI/desktop automation, "
+        "'shell_*' for shell command execution."
     ),
 )
 
-for server_cfg in SUB_SERVERS:
-    from fastmcp.client.transports import PythonStdioTransport
+# ── Mount sub-servers via stdio subprocess transport ─────────────────────────
+#
+# create_proxy() accepts any ClientTransport directly.
+# PythonStdioTransport spawns the script as a child process and speaks
+# MCP over its stdin/stdout — no HTTP server needed for the sub-servers.
+#
+# namespace="autogui"  →  tools become  autogui_move_cursor, autogui_click …
+# namespace="shell"    →  tools become  shell_command
 
-    transport = PythonStdioTransport(
-        script_path=server_cfg["args"][0],
-        python_cmd=server_cfg["command"],
-        env=server_cfg.get("env"),
-    )
+orchestrator.mount(
+    create_proxy(
+        PythonStdioTransport(
+            script_path=AUTOGUI_SCRIPT,
+            python_cmd=PYTHON,
+        )
+    ),
+    namespace="autogui",
+)
 
-    from fastmcp.server.proxy import FastMCPProxy
-    proxy = FastMCPProxy.from_client_transport(transport)
+orchestrator.mount(
+    create_proxy(
+        PythonStdioTransport(
+            script_path=SHELL_SCRIPT,
+            python_cmd=PYTHON,
+        )
+    ),
+    namespace="shell",
+)
 
-    orchestrator.mount(proxy, prefix=server_cfg["namespace"])
-
-
+# ── Entrypoint ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    HOST = os.getenv("ORCHESTRATOR_HOST", "127.0.0.1")
-    PORT = int(os.getenv("ORCHESTRATOR_PORT", "8082"))
+    host = os.getenv("ORCHESTRATOR_HOST", "127.0.0.1")
+    port = int(os.getenv("ORCHESTRATOR_PORT", "8082"))
 
-    print(f"[Orchestrator] Starting on http://{HOST}:{PORT}")
-    print(f"[Orchestrator] Mounted servers:")
-    for s in SUB_SERVERS:
-        print(f"  - namespace='{s['namespace']}'  script={s['args'][0]}")
+    print(f"[Lumina Orchestrator] http://{host}:{port}/mcp")
+    print(f"  autogui_* tools  ← {AUTOGUI_SCRIPT}")
+    print(f"  shell_*    tools  ← {SHELL_SCRIPT}")
+    print(f"  Python           : {PYTHON}")
 
-    orchestrator.run(transport="http", host=HOST, port=PORT)
+    orchestrator.run(transport="http", host=host, port=port)
