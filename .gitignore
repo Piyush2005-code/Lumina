@@ -1,4 +1,9 @@
 ## remove the virtual environments from pushing
-venv/
-.env
+**venv/
 
+## Remove the .env files
+**.env*
+
+## Removing the artifacts
+**.pdf
+**.tex
