@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumina — AI Automation Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Notification Toasts -->
+  <div id="toast-container"></div>
+
+  <!-- Notification Drawer -->
+  <div id="notif-drawer" class="notif-drawer hidden">
+    <div class="notif-header">
+      <span class="notif-title">Notifications</span>
+      <button class="notif-clear" onclick="clearAllNotifications()">Clear all</button>
+    </div>
+    <div id="notif-list" class="notif-list"></div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div id="settings-panel" class="settings-panel hidden">
+    <div class="settings-header">
+      <span>Settings</span>
+      <button class="icon-btn" onclick="toggleSettings()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <div class="settings-section-label">API Keys</div>
+        <label class="settings-label">Gemini API Key</label>
+        <input type="password" class="settings-input" placeholder="AIza..." />
+        <label class="settings-label">Anthropic API Key</label>
+        <input type="password" class="settings-input" placeholder="sk-ant-..." />
+        <label class="settings-label">OpenAI / OpenRouter Key</label>
+        <input type="password" class="settings-input" placeholder="sk-..." />
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-label">Model</div>
+        <select class="settings-input">
+          <option>gemini-2.0-flash</option>
+          <option>claude-sonnet-4-5</option>
+          <option>gpt-4o</option>
+          <option>mistralai/mistral-7b-instruct</option>
+        </select>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-label">MCP Servers</div>
+        <div class="tool-toggle-row">
+          <span>AutoGUI MCP</span>
+          <label class="toggle"><input type="checkbox" checked /><span class="slider"></span></label>
+        </div>
+        <div class="tool-toggle-row">
+          <span>Shell MCP</span>
+          <label class="toggle"><input type="checkbox" checked /><span class="slider"></span></label>
+        </div>
+        <div class="tool-toggle-row">
+          <span>Orchestrator</span>
+          <label class="toggle"><input type="checkbox" /><span class="slider"></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div class="app">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo-block">
+          <img src="logo.png" alt="Lumina" class="logo-img" />
+          <span class="logo-text">Lumina</span>
+        </div>
+        <div class="topbar-breadcrumb">
+          <span class="breadcrumb-item">Workspace</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-item active" id="active-session">New Session</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="status-pill" id="status-pill">
+          <span class="status-dot running" id="status-dot"></span>
+          <span id="status-text">Running</span>
+        </div>
+        <button class="icon-btn notif-btn" onclick="toggleNotifDrawer()" id="notif-btn">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge hidden" id="notif-badge">3</span>
+        </button>
+        <button class="icon-btn" onclick="toggleSettings()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Body -->
+    <div class="body">
+
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+          <button class="sidebar-item active" data-panel="chats" onclick="switchSidebarPanel(this, 'chats')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Chats</span>
+          </button>
+          <button class="sidebar-item" data-panel="files" onclick="switchSidebarPanel(this, 'files')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>Files</span>
+          </button>
+          <button class="sidebar-item" data-panel="agents" onclick="switchSidebarPanel(this, 'agents')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+            <span>Agents</span>
+          </button>
+          <button class="sidebar-item" data-panel="tools" onclick="switchSidebarPanel(this, 'tools')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span>Tools</span>
+          </button>
+          <button class="sidebar-item" data-panel="memory" onclick="switchSidebarPanel(this, 'memory')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            <span>Memory</span>
+          </button>
+          <button class="sidebar-item" data-panel="logs" onclick="switchSidebarPanel(this, 'logs')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Logs</span>
+          </button>
+        </nav>
+
+        <!-- Sidebar panels -->
+        <div class="sidebar-panel active" id="panel-chats">
+          <div class="panel-label">Conversations</div>
+          <div class="search-row"><input class="search-input" placeholder="Search..." /></div>
+          <div class="chat-list">
+            <div class="chat-entry active" onclick="loadChat(this, 'New Session')">
+              <div class="chat-entry-title">New Session</div>
+              <div class="chat-entry-meta">Just now</div>
+            </div>
+            <div class="chat-entry" onclick="loadChat(this, 'Automate file backup')">
+              <div class="chat-entry-title">Automate file backup</div>
+              <div class="chat-entry-meta">2 hrs ago</div>
+            </div>
+            <div class="chat-entry" onclick="loadChat(this, 'GUI automation test')">
+              <div class="chat-entry-title">GUI automation test</div>
+              <div class="chat-entry-meta">Yesterday</div>
+            </div>
+            <div class="chat-entry" onclick="loadChat(this, 'Shell script runner')">
+              <div class="chat-entry-title">Shell script runner</div>
+              <div class="chat-entry-meta">2 days ago</div>
+            </div>
+          </div>
+          <button class="new-chat-btn" onclick="newChat()">+ New Chat</button>
+        </div>
+
+        <div class="sidebar-panel hidden" id="panel-files">
+          <div class="panel-label">Workspace Files</div>
+          <div class="file-tree">
+            <div class="file-node folder open">agents-mcp/</div>
+            <div class="file-node file indent" onclick="openPreview('implementation_plan.md')">implementation_plan.md</div>
+            <div class="file-node file indent" onclick="openPreview('walkthrough.md')">walkthrough.md</div>
+            <div class="file-node folder indent">backend/</div>
+            <div class="file-node file indent2" onclick="openPreview('utils.py')">utils.py</div>
+            <div class="file-node folder indent">frontend/</div>
+            <div class="file-node file indent2">index.html</div>
+          </div>
+        </div>
+
+        <div class="sidebar-panel hidden" id="panel-agents">
+          <div class="panel-label">Agents</div>
+          <div class="agent-list">
+            <div class="agent-card">
+              <div class="agent-dot running"></div>
+              <div class="agent-info"><div class="agent-name">Orchestrator</div><div class="agent-status">Running — port 8082</div></div>
+            </div>
+            <div class="agent-card">
+              <div class="agent-dot running"></div>
+              <div class="agent-info"><div class="agent-name">Shell Agent</div><div class="agent-status">Idle</div></div>
+            </div>
+            <div class="agent-card">
+              <div class="agent-dot idle"></div>
+              <div class="agent-info"><div class="agent-name">GUI Agent</div><div class="agent-status">Stopped</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-panel hidden" id="panel-tools">
+          <div class="panel-label">MCP Tools</div>
+          <div class="tool-list">
+            <div class="tool-card"><div class="tool-card-name">command</div><div class="tool-card-desc">Execute shell commands</div><label class="toggle small"><input type="checkbox" checked /><span class="slider"></span></label></div>
+            <div class="tool-card"><div class="tool-card-name">move_cursor</div><div class="tool-card-desc">Move mouse cursor</div><label class="toggle small"><input type="checkbox" checked /><span class="slider"></span></label></div>
+            <div class="tool-card"><div class="tool-card-name">click</div><div class="tool-card-desc">Click at position</div><label class="toggle small"><input type="checkbox" checked /><span class="slider"></span></label></div>
+            <div class="tool-card"><div class="tool-card-name">alert</div><div class="tool-card-desc">Show system alert</div><label class="toggle small"><input type="checkbox" /><span class="slider"></span></label></div>
+            <div class="tool-card"><div class="tool-card-name">get_size</div><div class="tool-card-desc">Get screen dimensions</div><label class="toggle small"><input type="checkbox" checked /><span class="slider"></span></label></div>
+          </div>
+        </div>
+
+        <div class="sidebar-panel hidden" id="panel-memory">
+          <div class="panel-label">Memory</div>
+          <div class="memory-list">
+            <div class="memory-entry"><div class="memory-type">Episodic</div><div class="memory-text">User ran backup script at 14:30</div></div>
+            <div class="memory-entry"><div class="memory-type">Workspace</div><div class="memory-text">Project: agents-mcp, Python 3.12</div></div>
+            <div class="memory-entry"><div class="memory-type">Semantic</div><div class="memory-text">User prefers FastAPI over Django</div></div>
+          </div>
+        </div>
+
+        <div class="sidebar-panel hidden" id="panel-logs">
+          <div class="panel-label">System Logs</div>
+          <div class="log-stream" id="log-stream">
+            <div class="log-line info">[INFO] Lumina started on port 8000</div>
+            <div class="log-line info">[INFO] ShellMCP connected via stdio</div>
+            <div class="log-line info">[INFO] AutoGUI MCP connected via stdio</div>
+            <div class="log-line warn">[WARN] ANTHROPIC_API_KEY not set</div>
+            <div class="log-line info">[INFO] Gemini client initialized</div>
+            <div class="log-line debug">[DEBUG] Orchestrator listening on 8082</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Chat Panel -->
+      <main class="chat-panel">
+        <div class="messages" id="messages">
+          <!-- Welcome state -->
+          <div class="welcome-state" id="welcome-state">
+            <img src="logo.png" alt="Lumina" class="welcome-logo" />
+            <div class="welcome-title">Good evening, Piyush</div>
+            <div class="welcome-sub">Lumina is ready. What would you like to automate?</div>
+            <div class="suggestion-chips">
+              <button class="chip" onclick="fillInput('List all Python files in my project')">List all Python files in my project</button>
+              <button class="chip" onclick="fillInput('Move my cursor to the center of the screen')">Move cursor to screen center</button>
+              <button class="chip" onclick="fillInput('Show me the current screen dimensions')">Get screen dimensions</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Voice ripple area -->
+        <div class="voice-area hidden" id="voice-area">
+          <div class="ripple-container">
+            <div class="ripple-ring r1"></div>
+            <div class="ripple-ring r2"></div>
+            <div class="ripple-ring r3"></div>
+            <div class="ripple-ring r4"></div>
+            <div class="ripple-orb"></div>
+          </div>
+          <div class="voice-label">Listening...</div>
+          <button class="voice-cancel" onclick="exitVoice()">Cancel</button>
+        </div>
+
+        <!-- Input bar -->
+        <div class="input-bar">
+          <div class="input-card">
+            <textarea class="input-textarea" id="input-textarea" placeholder="Ask Lumina anything..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <div class="input-actions">
+              <div class="input-left">
+                <button class="input-btn" title="Attach file">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                </button>
+                <button class="input-btn" title="Mention agent or tool">@</button>
+              </div>
+              <div class="input-right">
+                <button class="input-btn mic-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </button>
+                <button class="send-btn" onclick="sendMessage()" id="send-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Preview Panel -->
+      <aside class="preview-panel" id="preview-panel">
+        <div class="preview-tabs" id="preview-tabs">
+          <button class="preview-tab active" id="tab-welcome">Preview</button>
+        </div>
+        <div class="preview-toolbar">
+          <button class="icon-btn small" title="Copy raw">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <div class="preview-content" id="preview-content">
+          <div class="preview-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <p>No file open</p>
+            <span>Click a file in the sidebar<br/>or ask Lumina to open one</span>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

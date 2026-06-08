@@ -11,3 +11,6 @@
 ## Some Docs
 docs/*
 
+
+## Frontend node_modules
+lumina-ui/node_modules
