@@ -123,7 +123,7 @@ def confirm(text : str, title : str, buttons : list[str]):
 
     Ideally a list of strings should be given to the buttons argument
     """
-    if type(buttons) is not list():
+    if not isinstance(buttons, list):
         buttons = list(buttons)
 
     try: 

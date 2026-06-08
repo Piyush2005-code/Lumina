@@ -4,6 +4,7 @@ from fastmcp import Client
 
 client = Client("./server.py")
 
+# Currently using the only one function defined as an MCP client.
 async def main():
     async with client:
         await client.ping()
