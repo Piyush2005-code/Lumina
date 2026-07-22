@@ -1,4 +1,4 @@
 ## remove the virtual environments from pushing
 venv/
-.env
+**/.env*
 
