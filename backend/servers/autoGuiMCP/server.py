@@ -7,7 +7,8 @@ mcp = FastMCP("AutoGUITools")
 
 @mcp.tool
 def move_cursor(x: int, y: int):
-    """Moves the cursor to the coordinates (x, y) where the (0, 0) is at the top left.
+    """
+    Moves the cursor to the coordinates (x, y) where the (0, 0) is at the top left.
 
     Args:
         x: the position of x coordinate of the pixel to move to.
@@ -186,10 +187,12 @@ def password(text : str, title : str, default : str, mask : str = "*"):
                 }
 
 
-def main():
-    pyautogui.PAUSE = 1.0
-    pyautogui.FAILSAFE = True
-    mcp.run(transport = "stdio")
+
+## Not being used currently
+# def main():
+#     pyautogui.PAUSE = 1.0
+#     pyautogui.FAILSAFE = True
+#     mcp.run(transport = "stdio")
 
 if __name__ == "__main__":
    mcp.run(transport = "stdio")
