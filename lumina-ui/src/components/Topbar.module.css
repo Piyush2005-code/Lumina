@@ -1,0 +1,51 @@
+.topbar {
+  height: 52px;
+  background: #fff;
+  border-bottom: 1px solid #e4e4eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  z-index: 100;
+  flex-shrink: 0;
+}
+.left, .right { display: flex; align-items: center; gap: 14px; }
+.logo { display: flex; align-items: center; gap: 9px; }
+.logoImg { width: 28px; height: 28px; object-fit: contain; }
+.logoText {
+  font-weight: 700; font-size: 15px; letter-spacing: -0.2px;
+  background: linear-gradient(135deg, #f25c2b, #e0245e);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #9898aa; }
+.breadcrumbSep { color: #e4e4eb; }
+.breadcrumbItem.active { color: #52525e; font-weight: 500; }
+.statusPill {
+  display: flex; align-items: center; gap: 6px;
+  background: #f7f7f9; border: 1px solid #e4e4eb;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 12px; color: #52525e;
+}
+.statusDot {
+  width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(34,197,94,0); }
+}
+.iconBtn {
+  position: relative;
+  background: none; border: 1px solid #e4e4eb;
+  color: #52525e; width: 32px; height: 32px;
+  border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; transition: all 0.15s;
+}
+.iconBtn:hover { border-color: rgba(242,92,43,0.22); color: #f25c2b; background: rgba(242,92,43,0.07); }
+.badge {
+  position: absolute; top: -5px; right: -5px;
+  background: #e0245e; color: #fff; font-size: 10px;
+  font-weight: 700; min-width: 16px; height: 16px;
+  border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; padding: 0 3px; border: 2px solid #fff;
+}
