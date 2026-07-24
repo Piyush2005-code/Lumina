@@ -25,9 +25,9 @@ def command(cmd : str):
     }
 
 
-# Process management
+# # Process management
 # @mcp.tool
-# def open_process(cmd : str):
+# def work_process(cmd : str):
 #     """
 #     The tool used to initiate and utilise the process management functionality of server.
 
@@ -36,12 +36,5 @@ def command(cmd : str):
 #     """
 
 
-
 if __name__=="__main__":
-    mcp.run(transport="stdio")
-
-# if __name__=="__main__":
-#     cmd = input()
-#     output = command(cmd)
-#     print(output['status'], output['stdout'], output['stderr'])
-
+    mcp.run(transport = "stdio")
