@@ -46,6 +46,7 @@ export default function GrainHeroSection({
             lineHeight: 0.90,
             marginBottom: 28,
             color: "#ffffff",
+            mixBlendMode: "difference",
           }}
         >
           {title}
@@ -55,7 +56,9 @@ export default function GrainHeroSection({
           style={{
             fontFamily: "var(--font-sans)",
             fontSize: "clamp(15px, 2vw, 18px)",
-            color: "rgba(220, 230, 255, 0.70)",
+            color: "#ffffff",
+            mixBlendMode: "difference",
+            opacity: 0.85,
             maxWidth: 420,
             margin: "0 auto 48px",
             lineHeight: 1.65,
