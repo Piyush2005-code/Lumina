@@ -3,22 +3,20 @@
   "version": "0.1.0",
   "description": "Backend orchestration engine for Lumina",
   "private": true,
-
   "type": "module",
-
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "clean": "rm -rf dist"
   },
-
   "dependencies": {
+    "@google/genai": "^2.16.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "groq-sdk": "^1.5.0"
   },
-
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
