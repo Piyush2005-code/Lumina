@@ -1,17 +1,49 @@
-import { useState } from "react";
-import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
-import ModelSelector from "./ModelSelector.tsx";
+import { useState, useEffect } from "react";
 import ChatPane from "./ChatPane.tsx";
+import { fetchModels, type ProviderInfo, type ModelInfo } from "../lib/api.ts";
 
-const SIDEBAR_W = 256;
+interface ModelOption {
+  provider: string;
+  model: string;
+  label: string;
+}
 
 interface WorkspaceLayoutProps {
   visible: boolean;
 }
 
 export default function WorkspaceLayout({ visible }: WorkspaceLayoutProps) {
-  const [selected, setSelected] = useState({ provider: "groq", model: "llama-3.3-70b-versatile" });
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [options, setOptions] = useState<ModelOption[]>([]);
+  const [selected, setSelected] = useState<ModelOption>({
+    provider: "groq",
+    model: "llama-3.3-70b-versatile",
+    label: "Llama 3.3 70B",
+  });
+
+  /* Load model list from backend */
+  useEffect(() => {
+    fetchModels()
+      .then(data => {
+        const flat: ModelOption[] = [];
+        data.providers.forEach((p: ProviderInfo) => {
+          p.models.forEach((m: ModelInfo) => {
+            flat.push({ provider: p.id, model: m.id, label: m.name });
+          });
+        });
+        if (flat.length > 0) {
+          setOptions(flat);
+          setSelected(flat[0]);
+        }
+      })
+      .catch(() => {
+        /* backend offline — stay with default */
+      });
+  }, []);
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const found = options.find(o => `${o.provider}::${o.model}` === e.target.value);
+    if (found) setSelected(found);
+  };
 
   return (
     <div
@@ -20,133 +52,89 @@ export default function WorkspaceLayout({ visible }: WorkspaceLayoutProps) {
         inset: 0,
         display: "flex",
         flexDirection: "column",
+        background: "var(--bg-base)",
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(20px)",
-        transition: "opacity 0.45s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+        transform: visible ? "translateY(0)" : "translateY(16px)",
+        transition: "opacity 0.42s ease, transform 0.42s cubic-bezier(0.22,1,0.36,1)",
         pointerEvents: visible ? "auto" : "none",
-        background: "linear-gradient(135deg, hsl(220,40%,97%) 0%, hsl(240,30%,96%) 50%, hsl(260,30%,95%) 100%)",
       }}
     >
-      {/* Top bar */}
+      {/* ── Minimal top bar ─────────────────────── */}
       <header
         style={{
-          height: 52,
+          height: 48,
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          justifyContent: "space-between",
           padding: "0 20px",
-          borderBottom: "1.5px solid rgba(200,210,232,0.45)",
-          background: "rgba(255,255,255,0.55)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          borderBottom: "1px solid var(--border)",
+          background: "rgba(3, 8, 22, 0.85)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           flexShrink: 0,
           zIndex: 10,
         }}
       >
-        {/* Toggle sidebar */}
-        <button
-          id="sidebar-toggle-btn"
-          onClick={() => setSidebarOpen(o => !o)}
+        {/* Wordmark */}
+        <span
           style={{
-            width: 30, height: 30, borderRadius: 8,
-            background: "rgba(200,210,230,0.25)",
-            border: "1.5px solid rgba(200,210,232,0.45)",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            color: "hsl(225,15%,50%)", transition: "background 0.2s ease",
+            fontFamily: "var(--font-display)",
+            fontSize: 18,
+            fontWeight: 800,
+            fontStyle: "italic",
+            letterSpacing: "-0.03em",
+            background: "linear-gradient(120deg, #fff 0%, #93C5FD 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
           }}
-          title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
         >
-          {sidebarOpen
-            ? <ChevronLeft size={14} strokeWidth={2} />
-            : <ChevronRight size={14} strokeWidth={2} />
-          }
-        </button>
+          Lumina
+        </span>
 
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <Sparkles size={16} strokeWidth={1.8} style={{ color: "hsl(234,55%,62%)" }} />
-          <span
+        {/* Inline model picker — styled select, not a card panel */}
+        {options.length > 0 && (
+          <select
+            id="model-picker"
+            value={`${selected.provider}::${selected.model}`}
+            onChange={handleSelectChange}
             style={{
-              fontFamily: "Inter, system-ui, sans-serif",
-              fontSize: 16,
-              fontWeight: 500,
-              color: "hsl(225,25%,20%)",
-              letterSpacing: "-0.02em",
+              background: "rgba(10, 20, 50, 0.65)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              color: "var(--text-secondary)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11.5,
+              letterSpacing: "0.03em",
+              padding: "5px 10px",
+              cursor: "pointer",
+              outline: "none",
+              appearance: "none",
+              WebkitAppearance: "none",
+              /* show a subtle caret */
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(100,130,175,0.6)'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 8px center",
+              paddingRight: 24,
             }}
           >
-            Lumina
-          </span>
-        </div>
-
-        {/* Active model badge */}
-        <div style={{ marginLeft: "auto" }}>
-          <span
-            style={{
-              fontSize: 11,
-              color: "hsl(225,12%,58%)",
-              fontFamily: "JetBrains Mono, monospace",
-              letterSpacing: "0.04em",
-              background: "rgba(200,210,230,0.22)",
-              padding: "4px 10px",
-              borderRadius: 99,
-              border: "1.5px solid rgba(200,210,232,0.4)",
-            }}
-          >
-            {selected.provider} / {selected.model}
-          </span>
-        </div>
+            {options.map(o => (
+              <option
+                key={`${o.provider}::${o.model}`}
+                value={`${o.provider}::${o.model}`}
+                style={{ background: "#0B1628", color: "#EEF2FF" }}
+              >
+                {o.provider} / {o.label}
+              </option>
+            ))}
+          </select>
+        )}
       </header>
 
-      {/* Main area */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-
-        {/* Sidebar */}
-        <aside
-          style={{
-            width: sidebarOpen ? SIDEBAR_W : 0,
-            minWidth: sidebarOpen ? SIDEBAR_W : 0,
-            overflow: "hidden",
-            transition: "width 0.3s cubic-bezier(0.22,1,0.36,1), min-width 0.3s cubic-bezier(0.22,1,0.36,1)",
-            borderRight: "1.5px solid rgba(200,210,232,0.45)",
-            background: "rgba(255,255,255,0.42)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              width: SIDEBAR_W,
-              height: "100%",
-              overflowY: "auto",
-              padding: "20px 14px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
-            <p
-              style={{
-                fontSize: 10.5,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "hsl(225,15%,55%)",
-                padding: "0 4px",
-                marginBottom: 10,
-              }}
-            >
-              Model
-            </p>
-            <ModelSelector selected={selected} onSelect={setSelected} />
-          </div>
-        </aside>
-
-        {/* Chat area */}
-        <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <ChatPane provider={selected.provider} model={selected.model} />
-        </main>
-      </div>
+      {/* ── Chat (full width) ────────────────────── */}
+      <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <ChatPane provider={selected.provider} model={selected.model} />
+      </main>
     </div>
   );
 }
