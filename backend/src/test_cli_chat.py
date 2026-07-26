@@ -1,6 +1,8 @@
 from fastmcp import Client
 import asyncio
 from google import genai
+from openai import OpenAI
+from anthropic import Anthropic
 from google.genai import types
 import os
 from dotenv import load_dotenv
