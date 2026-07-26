@@ -7,16 +7,18 @@ export class ChatHandler {
 
     async handle(request: ChatRequest): Promise<ChatResponse> {
 
-        const provider =
-            ProviderFactory.get(request.provider);
+        const provider = ProviderFactory.get(request.provider);
 
-        const response =
-            await provider.generate(request.message);
+        const response = await provider.generate(
+            request.message,
+            request.model,
+            request.history ?? []
+        );
 
         return {
-
-            response
-
+            response,
+            provider: provider.name,
+            model: request.model ?? provider.defaultModel,
         };
 
     }

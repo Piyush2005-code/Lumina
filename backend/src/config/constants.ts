@@ -1,6 +1,6 @@
-export const DEFAULT_MODEL = "gpt-4.1-mini";
+export const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 
-export const DEFAULT_PROVIDER = "openai";
+export const DEFAULT_PROVIDER = "groq";
 
 export const API_VERSION = "v1";
 
