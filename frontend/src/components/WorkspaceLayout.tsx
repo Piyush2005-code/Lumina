@@ -1,12 +1,18 @@
+import { useState } from "react";
+import { MessageSquareText, Mic } from "lucide-react";
 import ChatPane from "./ChatPane.tsx";
+import VoicePane from "./VoicePane.tsx";
 
 interface WorkspaceLayoutProps {
   visible: boolean;
 }
 
+type InteractionMode = "text" | "voice";
+
 export default function WorkspaceLayout({ visible }: WorkspaceLayoutProps) {
-  // Hardcoded for extreme minimalism. If a model switcher is needed later, 
-  // it should be integrated in a minimal command-menu or hidden settings pane.
+  const [mode, setMode] = useState<InteractionMode>("text");
+
+  // Hardcoded for extreme minimalism
   const provider = "groq";
   const model = "llama-3.3-70b-versatile";
 
@@ -16,7 +22,6 @@ export default function WorkspaceLayout({ visible }: WorkspaceLayoutProps) {
         position: "fixed",
         inset: 0,
         display: "flex",
-        flexDirection: "column",
         // Translucent background to reveal the grain gradient from App.tsx
         background: "rgba(2, 6, 17, 0.55)",
         backdropFilter: "blur(40px)",
@@ -27,38 +32,100 @@ export default function WorkspaceLayout({ visible }: WorkspaceLayoutProps) {
         pointerEvents: visible ? "auto" : "none",
       }}
     >
-      {/* ── Minimal top bar ─────────────────────── */}
-      <header
+      {/* ── Minimal left sidebar ─────────────────────── */}
+      <aside
         style={{
-          height: 56,
+          width: 64,
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+          padding: "24px 0",
+          borderRight: "1px solid rgba(255, 255, 255, 0.05)",
           flexShrink: 0,
-          zIndex: 10,
+          zIndex: 20,
+          gap: 16,
         }}
       >
-        {/* Wordmark Only */}
-        <span
+        <button
+          onClick={() => setMode("text")}
           style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 20,
-            fontWeight: 800,
-            fontStyle: "italic",
-            letterSpacing: "-0.04em",
-            color: "rgba(255, 255, 255, 0.9)",
-            mixBlendMode: "difference",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: mode === "text" ? "rgba(255, 255, 255, 0.1)" : "transparent",
+            color: mode === "text" ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 255, 255, 0.4)",
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          title="Text Mode"
+        >
+          <MessageSquareText size={20} strokeWidth={1.5} />
+        </button>
+
+        <button
+          onClick={() => setMode("voice")}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: mode === "voice" ? "rgba(255, 255, 255, 0.1)" : "transparent",
+            color: mode === "voice" ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 255, 255, 0.4)",
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          title="Voice Mode"
+        >
+          <Mic size={20} strokeWidth={1.5} />
+        </button>
+      </aside>
+
+      {/* ── Main content area ────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        {/* ── Minimal top bar ─────────────────────── */}
+        <header
+          style={{
+            height: 56,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+            flexShrink: 0,
+            zIndex: 10,
+            background: mode === "text" ? "transparent" : "rgba(0,0,0,0.2)",
           }}
         >
-          Lumina
-        </span>
-      </header>
+          {/* Wordmark Only */}
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 20,
+              fontWeight: 800,
+              fontStyle: "italic",
+              letterSpacing: "-0.04em",
+              color: "rgba(255, 255, 255, 0.9)",
+              mixBlendMode: "difference",
+            }}
+          >
+            Lumina
+          </span>
+        </header>
 
-      {/* ── Chat (full width) ────────────────────── */}
-      <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <ChatPane provider={provider} model={model} />
-      </main>
+        <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
+          {mode === "text" ? (
+            <ChatPane provider={provider} model={model} />
+          ) : (
+            <VoicePane provider={provider} model={model} />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
