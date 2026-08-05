@@ -1,5 +1,11 @@
 # Lumina
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-61DAFB.svg?logo=react&logoColor=white)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+
 **Lumina** is a deeply integrated, locally-aware AI assistant built as an autonomous agent runtime and orchestration platform — not just a chatbot or a thin wrapper around LLM APIs. It's designed for full system control, persistent memory, context-rich coding assistance, and extensible tool use, while doubling as a hands-on project for learning systems engineering, backend architecture, distributed coordination, memory retrieval, low-level sandboxing, and AI orchestration.
 
 <p align="center">
@@ -26,6 +32,8 @@ Lumina is organized into seven layered subsystems:
 6. **Coding Agent Infrastructure** — codebase indexing, AST parsing, symbol graphs, diff generation, build pipelines.
 7. **Event-Driven Backend** — an async event bus connecting all modules, backed by PostgreSQL and message queues.
 
+Note that this describes the target architecture. Several layers (sandbox execution, the memory engine, the PostgreSQL-backed event bus) are still planned rather than implemented — see the design doc below for the full technical plan.
+
 See [docs/Lumina.pdf](docs/Lumina.pdf) (or [docs/Lumina.tex](docs/Lumina.tex)) for the full technical plan and architecture document.
 
 ## Project Structure
@@ -34,13 +42,15 @@ See [docs/Lumina.pdf](docs/Lumina.pdf) (or [docs/Lumina.tex](docs/Lumina.tex)) f
 agents-mcp/
 ├── backend/     # Node.js/TypeScript orchestration engine (providers, tools, MCP, websocket streaming)
 ├── frontend/    # React + Vite + Tailwind UI (chat pane, workspace layout, voice orb)
-├── servers/     # MCP servers (shell, auto-GUI, proxy)
+├── servers/     # MCP servers (shell, filesystem, auto-GUI, proxy)
 ├── electron/    # Desktop app shell
 ├── docs/        # Technical plan and design docs
 └── assets/      # Media assets
 ```
 
 ## Getting Started
+
+The backend and frontend are separate npm packages — install and run each in its own directory.
 
 **Backend**
 ```bash
@@ -55,3 +65,7 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Contributing
+
+Contributions are welcome — please open a pull request with a clear description of the change, along with any relevant tests or documentation.
