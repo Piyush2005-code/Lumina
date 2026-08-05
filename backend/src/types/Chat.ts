@@ -9,8 +9,10 @@ export type ChatMessage =
     | { role: "assistant"; content: string; toolCalls?: ToolCallRequest[] }
     | { role: "tool"; toolCallId: string; toolName: string; content: string };
 
+export type ProviderName = "groq" | "gemini" | "openrouter" | "nvidia";
+
 export interface ChatRequest {
-    provider: "groq" | "gemini";
+    provider: ProviderName;
     model?: string;
     message: string;
     history?: ChatMessage[];

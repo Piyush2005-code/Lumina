@@ -12,6 +12,12 @@ export const env = {
     OPENAI_API_KEY: optionalEnv("OPENAI_API_KEY"),
     GEMINI_API_KEY: optionalEnv("GEMINI_API_KEY"),
     GROQ_API_KEY: optionalEnv("GROQ_API_KEY"),
+    OPENROUTER_API_KEY: optionalEnv("OPENROUTER_API_KEY"),
+    NVIDIA_NIMS_API_KEY: optionalEnv("NVIDIA_NIMS_API_KEY"),
+
+    /** Optional OpenRouter attribution — shown on their rankings/usage pages. */
+    OPENROUTER_SITE_URL: optionalEnv("OPENROUTER_SITE_URL"),
+    OPENROUTER_APP_NAME: optionalEnv("OPENROUTER_APP_NAME"),
 
     DEFAULT_PROVIDER: process.env.DEFAULT_PROVIDER || "groq",
 

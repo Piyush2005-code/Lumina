@@ -67,6 +67,64 @@ const CATALOGUE: ProviderInfo[] = [
             },
         ],
     },
+    {
+        id: "openrouter",
+        name: "OpenRouter",
+        defaultModel: "meta-llama/llama-3.3-70b-instruct",
+        models: [
+            {
+                id: "meta-llama/llama-3.3-70b-instruct",
+                name: "Llama 3.3 70B",
+                description: "Meta's flagship open model, routed via OpenRouter.",
+                contextWindow: 131072,
+            },
+            {
+                id: "openai/gpt-4o-mini",
+                name: "GPT-4o mini",
+                description: "Cheap, quick OpenAI model for everyday tasks.",
+                contextWindow: 128000,
+            },
+            {
+                id: "anthropic/claude-sonnet-4.5",
+                name: "Claude Sonnet 4.5",
+                description: "Strong all-rounder for coding and long context.",
+                contextWindow: 1000000,
+            },
+            {
+                id: "deepseek/deepseek-chat",
+                name: "DeepSeek Chat",
+                description: "Capable open model at a low price point.",
+                contextWindow: 163840,
+            },
+            {
+                id: "qwen/qwen3-235b-a22b",
+                name: "Qwen3 235B A22B",
+                description: "Large mixture-of-experts model from Alibaba.",
+                contextWindow: 131072,
+            },
+        ],
+    },
+    {
+        id: "nvidia",
+        name: "NVIDIA NIM",
+        defaultModel: "meta/llama-3.1-70b-instruct",
+        // Only models verified as actually served on this account are listed —
+        // NVIDIA advertises far more via /v1/models than it will serve.
+        models: [
+            {
+                id: "meta/llama-3.1-70b-instruct",
+                name: "Llama 3.1 70B",
+                description: "Capable open model with reliable tool calling.",
+                contextWindow: 128000,
+            },
+            {
+                id: "meta/llama-3.1-8b-instruct",
+                name: "Llama 3.1 8B",
+                description: "Small and fast for lighter tasks.",
+                contextWindow: 128000,
+            },
+        ],
+    },
 ];
 
 const router = Router();
