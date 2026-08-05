@@ -2,7 +2,9 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import { MCPClient } from "./MCPClient.js";
+import { createLogger, startTimer } from "../utils/logger.js";
 
+import type { Logger } from "../utils/logger.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { CallToolResult, Tool as MCPToolDefinition } from "@modelcontextprotocol/sdk/types.js";
 
@@ -28,6 +30,7 @@ export class MCPServerConnection {
     readonly label: string;
 
     private readonly client: MCPClient;
+    private readonly log: Logger;
     private status: MCPServerStatus = "disconnected";
     private lastError: string | undefined;
     private tools: MCPToolDefinition[] = [];
@@ -36,6 +39,7 @@ export class MCPServerConnection {
         this.id = config.id;
         this.label = config.label;
         this.client = new MCPClient(`lumina-backend:${config.id}`);
+        this.log = createLogger(`mcp:${config.id}`);
     }
 
     getStatus(): MCPServerStatus {
@@ -53,15 +57,23 @@ export class MCPServerConnection {
     async connect(): Promise<void> {
         this.status = "connecting";
 
+        const timer = startTimer();
+
+        this.log.info("connecting", { transport: this.config.transport.type });
+
         try {
             const transport = this.buildTransport();
             await this.client.connect(transport);
             this.tools = await this.client.listTools();
             this.status = "connected";
             this.lastError = undefined;
+
+            this.log.info("connected", { ms: timer(), tools: this.tools.length });
+            this.log.debug("tools advertised", { names: this.tools.map(tool => tool.name).join(",") });
         } catch (error) {
             this.status = "error";
             this.lastError = error instanceof Error ? error.message : String(error);
+            this.log.fail("connect failed", error, { ms: timer() });
             throw error;
         }
     }
@@ -69,10 +81,22 @@ export class MCPServerConnection {
     async disconnect(): Promise<void> {
         await this.client.disconnect();
         this.status = "disconnected";
+        this.log.info("disconnected");
     }
 
     async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
-        return this.client.callTool(name, args);
+
+        const timer = startTimer();
+
+        try {
+            const result = await this.client.callTool(name, args);
+            this.log.debug("callTool", { name, ms: timer(), isError: result.isError ?? false });
+            return result;
+        } catch (error) {
+            this.log.fail("callTool threw", error, { name, ms: timer() });
+            throw error;
+        }
+
     }
 
     private buildTransport(): Transport {

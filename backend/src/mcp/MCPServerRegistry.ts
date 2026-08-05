@@ -1,6 +1,9 @@
 import { MCPServerConnection } from "./MCPServerConnection.js";
+import { createLogger, startTimer } from "../utils/logger.js";
 
 import type { MCPServerConfig } from "./MCPServerConnection.js";
+
+const log = createLogger("mcp");
 
 /**
  * Owns every configured MCP server connection. This is where the app
@@ -19,18 +22,28 @@ export class MCPServerRegistry {
 
     /** Connects every configured server, logging (not throwing on) failures individually. */
     async connectAll(): Promise<void> {
+
+        const timer = startTimer();
+
+        log.info("connecting all servers", { configured: this.connections.size });
+
         await Promise.all(
             this.list().map(async connection => {
                 try {
                     await connection.connect();
-                } catch (error) {
-                    console.error(
-                        `[MCP] Failed to connect to server "${connection.id}":`,
-                        error instanceof Error ? error.message : error
-                    );
+                } catch {
+                    // Already logged with detail by the connection itself; one bad server
+                    // must not stop the others from coming up.
                 }
             })
         );
+
+        log.info("connect pass done", {
+            ms: timer(),
+            connected: this.getConnected().length,
+            of: this.connections.size,
+        });
+
     }
 
     async disconnectAll(): Promise<void> {

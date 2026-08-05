@@ -1,10 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
+import { randomUUID } from "node:crypto";
 
 import { env } from "../../config/env.js";
-import type { Provider } from "../Provider.js";
+import { createLogger, startTimer } from "../../utils/logger.js";
+
+import type { Content } from "@google/genai";
+import type { GenerateResult, Provider, ToolDefinition } from "../Provider.js";
 import type { ChatMessage } from "../../types/Chat.js";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
+
+const log = createLogger("gemini");
 
 export class GeminiProvider implements Provider {
 
@@ -24,25 +30,86 @@ export class GeminiProvider implements Provider {
     }
 
     async generate(
-        message: string,
+        messages: ChatMessage[],
         model: string = DEFAULT_MODEL,
-        history: ChatMessage[] = []
-    ): Promise<string> {
+        tools: ToolDefinition[] = []
+    ): Promise<GenerateResult> {
 
-        // Build a conversation-aware prompt by prepending history.
-        const historyText = history
-            .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-            .join("\n");
-
-        const fullPrompt = historyText
-            ? `${historyText}\nUser: ${message}`
-            : message;
+        const apiTimer = startTimer();
 
         const response = await this.client.models.generateContent({
             model,
-            contents: fullPrompt
+            contents: messages.map(toGeminiContent),
+            ...(tools.length > 0
+                ? { config: { tools: [{ functionDeclarations: tools.map(toGeminiFunctionDeclaration) }] } }
+                : {}),
         });
 
-        return response.text ?? "";
+        log.debug("completion", {
+            model,
+            ms: apiTimer(),
+            finish: response.candidates?.[0]?.finishReason,
+            promptTokens: response.usageMetadata?.promptTokenCount,
+            completionTokens: response.usageMetadata?.candidatesTokenCount,
+            // 2.5 models burn hidden reasoning tokens, which is often the real cost of a slow turn.
+            thoughtTokens: response.usageMetadata?.thoughtsTokenCount,
+        });
+
+        const functionCalls = response.functionCalls;
+
+        if (functionCalls && functionCalls.length > 0) {
+            return {
+                type: "tool_calls",
+                content: response.text ?? "",
+                toolCalls: functionCalls.map(call => ({
+                    id: call.id ?? randomUUID(),
+                    name: call.name ?? "",
+                    arguments: call.args ?? {},
+                })),
+            };
+        }
+
+        return { type: "final", content: response.text ?? "" };
     }
+}
+
+function toGeminiContent(message: ChatMessage): Content {
+    switch (message.role) {
+
+        case "user":
+            return { role: "user", parts: [{ text: message.content }] };
+
+        case "assistant":
+            if (message.toolCalls && message.toolCalls.length > 0) {
+                return {
+                    role: "model",
+                    parts: message.toolCalls.map(call => ({
+                        functionCall: { id: call.id, name: call.name, args: call.arguments },
+                    })),
+                };
+            }
+            return { role: "model", parts: [{ text: message.content }] };
+
+        case "tool":
+            // Gemini expects function results echoed back as a "user" turn.
+            return {
+                role: "user",
+                parts: [{
+                    functionResponse: {
+                        id: message.toolCallId,
+                        name: message.toolName,
+                        response: { output: message.content },
+                    },
+                }],
+            };
+
+    }
+}
+
+function toGeminiFunctionDeclaration(tool: ToolDefinition) {
+    return {
+        name: tool.name,
+        description: tool.description,
+        parametersJsonSchema: tool.parameters,
+    };
 }
