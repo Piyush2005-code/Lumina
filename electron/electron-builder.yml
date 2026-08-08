@@ -1,0 +1,59 @@
+appId: dev.lumina.desktop
+productName: Lumina
+copyright: Copyright © 2026 Piyush Singh Bhati
+
+directories:
+  output: release
+  buildResources: build
+
+# Only the compiled shell ships from this package; the renderer and the backend
+# are brought in as resources below so each stays independently buildable.
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  - from: ../frontend/dist
+    to: renderer
+  - from: ../backend/dist
+    to: backend/dist
+  - from: ../backend/node_modules
+    to: backend/node_modules
+  - from: ../backend/package.json
+    to: backend/package.json
+  # The Python MCP servers are shipped as source; they run against whichever
+  # interpreter the host provides, which is why LUMINA_PYTHON exists.
+  - from: ../servers
+    to: servers
+    filter:
+      - "**/*.py"
+
+# ── The same codebase packages for all three desktop platforms ──────────────
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
