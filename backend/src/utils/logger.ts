@@ -37,6 +37,11 @@ export class Logger {
 
     constructor(private readonly scope: string) {}
 
+    /** The scope this logger writes under — also used as a correlation id for telemetry. */
+    get name(): string {
+        return this.scope;
+    }
+
     /** Derives a narrower scope, e.g. `createLogger("chat").child(requestId)`. */
     child(scope: string): Logger {
         return new Logger(`${this.scope}:${scope}`);
