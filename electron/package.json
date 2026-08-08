@@ -1,0 +1,25 @@
+{
+  "name": "lumina-desktop",
+  "version": "0.1.0",
+  "description": "Lumina desktop shell — Electron main process, secure IPC bridge and credential store",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist release",
+    "dev": "npm run build && cross-env LUMINA_DEV=1 electron .",
+    "start": "npm run build && electron .",
+    "package": "npm run build && electron-builder --mac --win --linux",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win",
+    "package:linux": "npm run build && electron-builder --linux",
+    "package:dir": "npm run build && electron-builder --dir"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "cross-env": "^10.0.0",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.9.2"
+  }
+}

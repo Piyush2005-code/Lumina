@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+
+    /*
+     * CommonJS, deliberately. A sandboxed preload script cannot be an ES module —
+     * Electron loads it in a restricted context that has no ESM loader — and the
+     * main process is simpler to keep on the same module system as its preload.
+     */
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "release"]
+}
