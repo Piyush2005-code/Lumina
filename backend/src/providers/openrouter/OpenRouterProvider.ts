@@ -1,4 +1,4 @@
-import { env } from "../../config/env.js";
+import { env, requireCredential } from "../../config/env.js";
 import { OpenAICompatibleProvider } from "../openaiCompatible/OpenAICompatibleProvider.js";
 
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct";
@@ -12,15 +12,10 @@ const BASE_URL = "https://openrouter.ai/api/v1";
 export class OpenRouterProvider extends OpenAICompatibleProvider {
 
     constructor() {
-
-        if (!env.OPENROUTER_API_KEY) {
-            throw new Error("Missing OPENROUTER_API_KEY");
-        }
-
         super({
             name: "openrouter",
             defaultModel: DEFAULT_MODEL,
-            apiKey: env.OPENROUTER_API_KEY,
+            apiKey: requireCredential("OPENROUTER_API_KEY"),
             baseURL: BASE_URL,
             // Optional attribution headers — they let OpenRouter label this app
             // on its rankings page and in your usage dashboard.

@@ -1,9 +1,9 @@
 import Groq from "groq-sdk";
 
-import { env } from "../../config/env.js";
+import { requireCredential } from "../../config/env.js";
 import { createLogger, describeError, startTimer } from "../../utils/logger.js";
 
-import type { GenerateResult, Provider, ToolDefinition } from "../Provider.js";
+import type { GenerateRequest, GenerateResponse, Provider, ToolDefinition, TokenUsage } from "../Provider.js";
 import type { ChatMessage } from "../../types/Chat.js";
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
@@ -25,38 +25,34 @@ export class GroqProvider implements Provider {
     private client: Groq;
 
     constructor() {
-        if (!env.GROQ_API_KEY) {
-            throw new Error("Missing GROQ_API_KEY");
-        }
-
-        this.client = new Groq({
-            apiKey: env.GROQ_API_KEY
-        });
+        this.client = new Groq({ apiKey: requireCredential("GROQ_API_KEY") });
     }
 
-    async generate(
-        messages: ChatMessage[],
-        model: string = DEFAULT_MODEL,
-        tools: ToolDefinition[] = []
-    ): Promise<GenerateResult> {
+    async generate(request: GenerateRequest): Promise<GenerateResponse> {
 
         const apiTimer = startTimer();
+        const model = request.model || DEFAULT_MODEL;
 
         const completion = await this.withToolUseRetry(() => this.client.chat.completions.create({
             model,
-            messages: messages.map(toGroqMessage),
+            messages: request.messages.map(toGroqMessage),
             // Lower temperature makes structured tool-call output more reliable.
-            ...(tools.length > 0 ? { tools: tools.map(toGroqTool), temperature: 0 } : {}),
+            ...(request.tools.length > 0 ? { tools: request.tools.map(toGroqTool), temperature: 0 } : {}),
         }));
 
         const choice = completion.choices[0]?.message;
+
+        const usage: TokenUsage = {
+            promptTokens: completion.usage?.prompt_tokens ?? null,
+            completionTokens: completion.usage?.completion_tokens ?? null,
+        };
 
         log.debug("completion", {
             model,
             ms: apiTimer(),
             finish: completion.choices[0]?.finish_reason,
-            promptTokens: completion.usage?.prompt_tokens,
-            completionTokens: completion.usage?.completion_tokens,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
             // Groq reports its own server-side inference time, which isolates network overhead.
             inferenceMs: completion.usage?.total_time !== undefined ? Math.round(completion.usage.total_time * 1000) : undefined,
         });
@@ -65,6 +61,7 @@ export class GroqProvider implements Provider {
             return {
                 type: "tool_calls",
                 content: choice.content ?? "",
+                usage,
                 toolCalls: choice.tool_calls.map(call => ({
                     id: call.id,
                     name: call.function.name,
@@ -73,7 +70,7 @@ export class GroqProvider implements Provider {
             };
         }
 
-        return { type: "final", content: choice?.content ?? "" };
+        return { type: "final", content: choice?.content ?? "", usage };
     }
 
     private async withToolUseRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -101,6 +98,9 @@ function isToolUseFailedError(error: unknown): boolean {
 
 function toGroqMessage(message: ChatMessage): Groq.Chat.ChatCompletionMessageParam {
     switch (message.role) {
+
+        case "system":
+            return { role: "system", content: message.content };
 
         case "user":
             return { role: "user", content: message.content };

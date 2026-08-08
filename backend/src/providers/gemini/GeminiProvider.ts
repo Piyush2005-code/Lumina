@@ -1,11 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { randomUUID } from "node:crypto";
 
-import { env } from "../../config/env.js";
+import { requireCredential } from "../../config/env.js";
 import { createLogger, startTimer } from "../../utils/logger.js";
 
 import type { Content } from "@google/genai";
-import type { GenerateResult, Provider, ToolDefinition } from "../Provider.js";
+import type { GenerateRequest, GenerateResponse, Provider, ToolDefinition, TokenUsage } from "../Provider.js";
 import type { ChatMessage } from "../../types/Chat.js";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
@@ -20,37 +20,50 @@ export class GeminiProvider implements Provider {
     private client: GoogleGenAI;
 
     constructor() {
-        if (!env.GEMINI_API_KEY) {
-            throw new Error("Missing GEMINI_API_KEY");
-        }
-
-        this.client = new GoogleGenAI({
-            apiKey: env.GEMINI_API_KEY
-        });
+        this.client = new GoogleGenAI({ apiKey: requireCredential("GEMINI_API_KEY") });
     }
 
-    async generate(
-        messages: ChatMessage[],
-        model: string = DEFAULT_MODEL,
-        tools: ToolDefinition[] = []
-    ): Promise<GenerateResult> {
+    async generate(request: GenerateRequest): Promise<GenerateResponse> {
 
         const apiTimer = startTimer();
+        const model = request.model || DEFAULT_MODEL;
+
+        // Gemini takes the system prompt out of band rather than as a turn.
+        const systemInstruction = request.messages
+            .filter(message => message.role === "system")
+            .map(message => message.content)
+            .join("\n\n");
+
+        const contents = request.messages
+            .filter(message => message.role !== "system")
+            .map(toGeminiContent);
 
         const response = await this.client.models.generateContent({
             model,
-            contents: messages.map(toGeminiContent),
-            ...(tools.length > 0
-                ? { config: { tools: [{ functionDeclarations: tools.map(toGeminiFunctionDeclaration) }] } }
+            contents,
+            ...(request.tools.length > 0 || systemInstruction.length > 0
+                ? {
+                    config: {
+                        ...(systemInstruction.length > 0 ? { systemInstruction } : {}),
+                        ...(request.tools.length > 0
+                            ? { tools: [{ functionDeclarations: request.tools.map(toGeminiFunctionDeclaration) }] }
+                            : {}),
+                    },
+                }
                 : {}),
         });
+
+        const usage: TokenUsage = {
+            promptTokens: response.usageMetadata?.promptTokenCount ?? null,
+            completionTokens: response.usageMetadata?.candidatesTokenCount ?? null,
+        };
 
         log.debug("completion", {
             model,
             ms: apiTimer(),
             finish: response.candidates?.[0]?.finishReason,
-            promptTokens: response.usageMetadata?.promptTokenCount,
-            completionTokens: response.usageMetadata?.candidatesTokenCount,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
             // 2.5 models burn hidden reasoning tokens, which is often the real cost of a slow turn.
             thoughtTokens: response.usageMetadata?.thoughtsTokenCount,
         });
@@ -61,6 +74,7 @@ export class GeminiProvider implements Provider {
             return {
                 type: "tool_calls",
                 content: response.text ?? "",
+                usage,
                 toolCalls: functionCalls.map(call => ({
                     id: call.id ?? randomUUID(),
                     name: call.name ?? "",
@@ -69,12 +83,16 @@ export class GeminiProvider implements Provider {
             };
         }
 
-        return { type: "final", content: response.text ?? "" };
+        return { type: "final", content: response.text ?? "", usage };
     }
 }
 
 function toGeminiContent(message: ChatMessage): Content {
     switch (message.role) {
+
+        case "system":
+            // Filtered out before this point; mapped defensively so the switch stays total.
+            return { role: "user", parts: [{ text: message.content }] };
 
         case "user":
             return { role: "user", parts: [{ text: message.content }] };

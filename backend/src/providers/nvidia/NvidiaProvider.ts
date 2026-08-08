@@ -1,4 +1,4 @@
-import { env } from "../../config/env.js";
+import { requireCredential } from "../../config/env.js";
 import { OpenAICompatibleProvider } from "../openaiCompatible/OpenAICompatibleProvider.js";
 
 /**
@@ -11,23 +11,13 @@ const DEFAULT_MODEL = "meta/llama-3.1-70b-instruct";
 
 const BASE_URL = "https://integrate.api.nvidia.com/v1";
 
-/**
- * NVIDIA NIM's hosted catalogue, which is OpenAI-compatible. Model ids are
- * namespaced by publisher (e.g. "meta/llama-3.3-70b-instruct",
- * "nvidia/llama-3.1-nemotron-70b-instruct").
- */
 export class NvidiaProvider extends OpenAICompatibleProvider {
 
     constructor() {
-
-        if (!env.NVIDIA_NIMS_API_KEY) {
-            throw new Error("Missing NVIDIA_NIMS_API_KEY");
-        }
-
         super({
             name: "nvidia",
             defaultModel: DEFAULT_MODEL,
-            apiKey: env.NVIDIA_NIMS_API_KEY,
+            apiKey: requireCredential("NVIDIA_NIMS_API_KEY"),
             baseURL: BASE_URL,
         });
     }

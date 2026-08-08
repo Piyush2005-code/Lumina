@@ -2,7 +2,7 @@ import OpenAI from "openai";
 
 import { createLogger, startTimer } from "../../utils/logger.js";
 
-import type { GenerateResult, Provider, ToolDefinition } from "../Provider.js";
+import type { GenerateRequest, GenerateResponse, Provider, ToolDefinition, TokenUsage } from "../Provider.js";
 import type { ChatMessage } from "../../types/Chat.js";
 
 export interface OpenAICompatibleOptions {
@@ -43,35 +43,38 @@ export class OpenAICompatibleProvider implements Provider {
         });
     }
 
-    async generate(
-        messages: ChatMessage[],
-        model: string = this.defaultModel,
-        tools: ToolDefinition[] = []
-    ): Promise<GenerateResult> {
+    async generate(request: GenerateRequest): Promise<GenerateResponse> {
 
         const apiTimer = startTimer();
+        const model = request.model || this.defaultModel;
 
         const completion = await this.client.chat.completions.create({
             model,
-            messages: messages.map(toOpenAIMessage),
+            messages: request.messages.map(toOpenAIMessage),
             // Matches the Groq provider: structured tool-call output is steadier at 0.
-            ...(tools.length > 0 ? { tools: tools.map(toOpenAITool), temperature: 0 } : {}),
+            ...(request.tools.length > 0 ? { tools: request.tools.map(toOpenAITool), temperature: 0 } : {}),
         });
 
         const choice = completion.choices[0]?.message;
+
+        const usage: TokenUsage = {
+            promptTokens: completion.usage?.prompt_tokens ?? null,
+            completionTokens: completion.usage?.completion_tokens ?? null,
+        };
 
         this.log.debug("completion", {
             model,
             ms: apiTimer(),
             finish: completion.choices[0]?.finish_reason,
-            promptTokens: completion.usage?.prompt_tokens,
-            completionTokens: completion.usage?.completion_tokens,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
         });
 
         if (choice?.tool_calls && choice.tool_calls.length > 0) {
             return {
                 type: "tool_calls",
                 content: choice.content ?? "",
+                usage,
                 toolCalls: choice.tool_calls.flatMap(call => (
                     // Only function calls map onto our ToolCallRequest shape; newer
                     // SDKs can also return custom-tool calls, which we don't offer.
@@ -86,12 +89,15 @@ export class OpenAICompatibleProvider implements Provider {
             };
         }
 
-        return { type: "final", content: choice?.content ?? "" };
+        return { type: "final", content: choice?.content ?? "", usage };
     }
 }
 
 function toOpenAIMessage(message: ChatMessage): OpenAI.Chat.ChatCompletionMessageParam {
     switch (message.role) {
+
+        case "system":
+            return { role: "system", content: message.content };
 
         case "user":
             return { role: "user", content: message.content };

@@ -6,21 +6,40 @@ export interface ToolDefinition {
     parameters: Record<string, unknown>;
 }
 
-export type GenerateResult =
-    | { type: "final"; content: string }
-    | { type: "tool_calls"; content: string; toolCalls: ToolCallRequest[] };
+/**
+ * Token counts as reported by the provider. Nulls rather than optionals: every
+ * provider reports these inconsistently, and a missing count is a fact worth
+ * carrying rather than a property to omit.
+ */
+export interface TokenUsage {
+    promptTokens: number | null;
+    completionTokens: number | null;
+}
+
+export const NO_USAGE: TokenUsage = { promptTokens: null, completionTokens: null };
+
+/**
+ * One normalised call into a model. Every provider receives exactly this shape,
+ * which is what keeps provider selection out of the runtime: the runtime builds
+ * a GenerateRequest, the scheduler picks who serves it.
+ */
+export interface GenerateRequest {
+    model: string;
+    messages: ChatMessage[];
+    tools: ToolDefinition[];
+    stream: boolean;
+}
+
+export type GenerateResponse =
+    | { type: "final"; content: string; usage: TokenUsage }
+    | { type: "tool_calls"; content: string; toolCalls: ToolCallRequest[]; usage: TokenUsage };
 
 export interface Provider {
-    /** The canonical provider name (e.g. "groq", "gemini"). */
+    /** Canonical provider id, matching its registry entry (e.g. "groq"). */
     readonly name: string;
 
-    /** The default model used when none is specified. */
+    /** Model used when a request does not name one. */
     readonly defaultModel: string;
 
-    /**
-     * Generate the next turn given the full conversation so far (including
-     * any prior tool calls/results). Returns either a final answer or a
-     * request to run one or more tools before continuing.
-     */
-    generate(messages: ChatMessage[], model?: string, tools?: ToolDefinition[]): Promise<GenerateResult>;
+    generate(request: GenerateRequest): Promise<GenerateResponse>;
 }
