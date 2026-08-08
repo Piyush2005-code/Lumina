@@ -1,4 +1,4 @@
-import type { Tool } from "./Tool.js";
+import type { ExecutionPolicy, Tool } from "./Tool.js";
 
 /**
  * Central lookup table of every tool currently available to agents,
@@ -39,6 +39,9 @@ export class ToolRegistry {
         return [...this.tools.values()];
     }
 
+    withPolicy(policy: ExecutionPolicy): Tool[] {
+        return this.list().filter(tool => tool.executionPolicy === policy);
+    }
 }
 
 export const toolRegistry = new ToolRegistry();

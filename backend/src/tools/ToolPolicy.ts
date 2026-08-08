@@ -5,25 +5,30 @@ export interface ToolPolicyContext {
     args: Record<string, unknown>;
 }
 
+export type PolicyOutcome = "allow" | "require_approval" | "deny";
+
 export interface ToolPolicyDecision {
-    allowed: boolean;
-    reason?: string;
+    outcome: PolicyOutcome;
+    reason: string;
 }
 
 /** A single rule. Return `undefined` to abstain and let later rules decide. */
 export type ToolPolicyRule = (ctx: ToolPolicyContext) => ToolPolicyDecision | undefined;
 
 /**
- * Permission layer every tool call passes through before execution.
- * Rules are evaluated in order; the first one to return a decision wins.
- * With no matching rule, the call is allowed by default.
+ * The gate every tool call passes through before execution.
+ *
+ * Rules run in order and the first decision wins, so ordering is the policy:
+ * malformed calls are rejected before anything asks a human to approve them,
+ * and the approval requirement is checked before the default allow.
  */
 export class ToolPolicy {
 
     private rules: ToolPolicyRule[] = [];
 
-    addRule(rule: ToolPolicyRule): void {
+    addRule(rule: ToolPolicyRule): this {
         this.rules.push(rule);
+        return this;
     }
 
     evaluate(ctx: ToolPolicyContext): ToolPolicyDecision {
@@ -33,10 +38,8 @@ export class ToolPolicy {
                 return decision;
             }
         }
-
-        return { allowed: true };
+        return { outcome: "allow", reason: "no rule objected" };
     }
-
 }
 
 /**
@@ -45,13 +48,13 @@ export class ToolPolicy {
  * instead of reaching the underlying MCP server.
  */
 export const requiredArgsRule: ToolPolicyRule = ({ tool, args }) => {
-    const required = tool.parameters.required ?? [];
 
+    const required = tool.parameters.required ?? [];
     const missing = required.filter(key => !(key in args));
 
     if (missing.length > 0) {
         return {
-            allowed: false,
+            outcome: "deny",
             reason: `Missing required argument(s): ${missing.join(", ")}`,
         };
     }
@@ -59,5 +62,19 @@ export const requiredArgsRule: ToolPolicyRule = ({ tool, args }) => {
     return undefined;
 };
 
-export const defaultToolPolicy = new ToolPolicy();
-defaultToolPolicy.addRule(requiredArgsRule);
+/** Routes anything classified as side-effecting to a human. */
+export const approvalRule: ToolPolicyRule = ({ tool }) => {
+
+    if (tool.executionPolicy === "APPROVAL_REQUIRED") {
+        return {
+            outcome: "require_approval",
+            reason: `${tool.name} has side effects outside Lumina and needs explicit authorisation`,
+        };
+    }
+
+    return undefined;
+};
+
+export const defaultToolPolicy = new ToolPolicy()
+    .addRule(requiredArgsRule)
+    .addRule(approvalRule);
