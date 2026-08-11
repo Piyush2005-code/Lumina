@@ -1,184 +1,106 @@
-import { useEffect, useState } from "react";
-import { Zap, Brain, RefreshCw, WifiOff } from "lucide-react";
-import { fetchModels, type ProviderInfo, type ModelInfo } from "../lib/api.ts";
-import clsx from "clsx";
-
-interface SelectedModel {
-  provider: string;
-  model: string;
-}
+import type { ProviderInfo, RoutingPreference } from "../lib/api.ts";
 
 interface ModelSelectorProps {
-  selected: SelectedModel;
-  onSelect: (sel: SelectedModel) => void;
+  providers: ProviderInfo[];
+  provider: string | null;
+  model: string | null;
+  preference: RoutingPreference;
+  onSelect: (provider: string | null, model: string | null) => void;
+  onPreference: (preference: RoutingPreference) => void;
 }
 
-function ProviderIcon({ id }: { id: string }) {
-  const style = { color: "var(--accent-bright)", flexShrink: 0 as const };
-  if (id === "groq")   return <Zap   size={12} strokeWidth={2} style={style} />;
-  if (id === "gemini") return <Brain size={12} strokeWidth={2} style={style} />;
-  return <Zap size={12} strokeWidth={2} style={style} />;
-}
+const PREFERENCES: { id: RoutingPreference; label: string; hint: string }[] = [
+  { id: "balanced", label: "Balanced", hint: "Blend latency, reliability, cost and capability tier." },
+  { id: "speed", label: "Fastest", hint: "Rank by measured p50 latency." },
+  { id: "quality", label: "Strongest", hint: "Prefer the highest capability tier that qualifies." },
+  { id: "cost", label: "Cheapest", hint: "Prefer the lowest price per token." },
+];
 
-function fmtCtx(n?: number): string {
-  if (!n) return "";
-  if (n >= 1_000_000) return `${n / 1_000_000}M ctx`;
-  if (n >= 1_000) return `${Math.round(n / 1000)}k ctx`;
-  return `${n} ctx`;
-}
+/**
+ * Model choice is a *hint*, not a command.
+ *
+ * Picking a model adds a scoring bonus for it; it does not bypass the capability
+ * filter. If the task needs tool calling and the chosen model cannot do it, the
+ * scheduler routes elsewhere and says so in the rationale — which is the whole
+ * point of routing on capabilities rather than on a dropdown.
+ */
+export default function ModelSelector({
+  providers, provider, model, preference, onSelect, onPreference,
+}: ModelSelectorProps) {
 
-/* Skeleton pulse card */
-function SkeletonCard() {
   return (
-    <div
-      style={{
-        height: 76,
-        borderRadius: 14,
-        border: "1px solid var(--border)",
-        background: "var(--card-bg)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(90deg, transparent 0%, rgba(40,80,160,0.08) 50%, transparent 100%)",
-          animation: "shimmer 1.6s ease-in-out infinite",
-        }}
-      />
-      <style>{`@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }`}</style>
-    </div>
-  );
-}
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
 
-export default function ModelSelector({ selected, onSelect }: ModelSelectorProps) {
-  const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+      <SectionLabel>ROUTING</SectionLabel>
 
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    fetchModels()
-      .then(d => { setProviders(d.providers); setLoading(false); })
-      .catch(e => { setError((e as Error).message); setLoading(false); });
-  };
-
-  useEffect(load, []);
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
+        {PREFERENCES.map(option => (
+          <button
+            key={option.id}
+            title={option.hint}
+            onClick={() => onPreference(option.id)}
+            style={chipStyle(preference === option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div
+      <SectionLabel>MODEL</SectionLabel>
+
+      <button
+        onClick={() => onSelect(null, null)}
         style={{
-          padding: "14px 16px",
-          borderRadius: 14,
-          border: "1px solid rgba(59,130,246,0.20)",
-          background: "var(--card-bg)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
+          ...rowStyle(provider === null),
+          marginBottom: 10,
         }}
       >
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <WifiOff size={14} strokeWidth={1.8} style={{ color: "var(--text-muted)" }} />
-          <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>Backend offline</span>
-        </div>
-        <p style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-          Start the backend server to load models.
-        </p>
-        <button
-          onClick={load}
-          style={{
-            display: "flex", gap: 5, alignItems: "center",
-            fontSize: 11.5, color: "var(--accent-bright)",
-            background: "none", border: "none", cursor: "pointer", padding: 0,
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          <RefreshCw size={11} strokeWidth={2} />
-          Retry
-        </button>
-      </div>
-    );
-  }
+        <span style={{ color: "rgba(255,255,255,0.85)" }}>Auto</span>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+          scheduler decides
+        </span>
+      </button>
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {providers.map((provider: ProviderInfo) => (
-        <div key={provider.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {/* Provider label */}
-          <div
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              fontSize: 10, fontWeight: 600,
-              letterSpacing: "0.10em",
-              textTransform: "uppercase" as const,
-              color: "var(--text-muted)",
-              padding: "0 3px",
-              fontFamily: "var(--font-sans)",
-            }}
-          >
-            <ProviderIcon id={provider.id} />
-            {provider.name}
+      {providers.map(entry => (
+        <div key={entry.id} style={{ marginBottom: 14 }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 10, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
+              {entry.name.toUpperCase()}
+            </span>
+            {!entry.configured && (
+              <span
+                title={`Missing ${entry.missingCredentials.join(", ")}`}
+                style={{ fontSize: 9, color: "rgba(255,176,87,0.8)" }}
+              >
+                NO KEY
+              </span>
+            )}
           </div>
 
-          {/* Model cards */}
-          {provider.models.map((model: ModelInfo) => {
-            const isSelected = selected.provider === provider.id && selected.model === model.id;
+          {entry.models.map(item => {
+            const selected = provider === entry.id && model === item.id;
             return (
               <button
-                key={model.id}
-                id={`model-${provider.id}-${model.id}`}
-                className={clsx("model-card", { selected: isSelected })}
-                onClick={() => onSelect({ provider: provider.id, model: model.id })}
+                key={item.id}
+                onClick={() => onSelect(entry.id, item.id)}
+                disabled={!entry.configured}
+                title={item.description}
+                style={{
+                  ...rowStyle(selected),
+                  opacity: entry.configured ? 1 : 0.35,
+                  cursor: entry.configured ? "pointer" : "not-allowed",
+                  marginBottom: 4,
+                }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      fontFamily: "var(--font-sans)",
-                      color: isSelected ? "var(--accent-bright)" : "var(--text-primary)",
-                      transition: "color 0.2s ease",
-                    }}
-                  >
-                    {model.name}
+                <span style={{ color: "rgba(255,255,255,0.85)" }}>{item.name}</span>
+                <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {item.capabilities.tools && <Tag>tools</Tag>}
+                  {item.capabilities.vision && <Tag>vision</Tag>}
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>
+                    {Math.round(item.capabilities.maxContext / 1000)}k
                   </span>
-                  <span
-                    style={{
-                      fontSize: 11.5,
-                      color: "var(--text-muted)",
-                      lineHeight: 1.45,
-                      fontFamily: "var(--font-sans)",
-                    }}
-                  >
-                    {model.description}
-                  </span>
-                  {model.contextWindow && (
-                    <span
-                      style={{
-                        marginTop: 3,
-                        fontSize: 10.5,
-                        fontFamily: "var(--font-mono)",
-                        letterSpacing: "0.04em",
-                        color: isSelected ? "rgba(96,165,250,0.75)" : "var(--text-muted)",
-                        transition: "color 0.2s ease",
-                      }}
-                    >
-                      {fmtCtx(model.contextWindow)}
-                    </span>
-                  )}
-                </div>
+                </span>
               </button>
             );
           })}
@@ -186,4 +108,60 @@ export default function ModelSelector({ selected, onSelect }: ModelSelectorProps
       ))}
     </div>
   );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div style={{ fontSize: 9, letterSpacing: "0.1em", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
+      {children}
+    </div>
+  );
+}
+
+function Tag({ children }: { children: string }) {
+  return (
+    <span
+      style={{
+        fontSize: 9,
+        padding: "1px 5px",
+        borderRadius: 3,
+        color: "rgba(120,190,255,0.85)",
+        background: "rgba(120,190,255,0.1)",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function chipStyle(active: boolean) {
+  return {
+    padding: "5px 12px",
+    fontSize: 11,
+    fontFamily: "var(--font-mono)",
+    borderRadius: 5,
+    cursor: "pointer",
+    color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.55)",
+    background: active ? "rgba(255,255,255,0.1)" : "transparent",
+    border: `1px solid ${active ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)"}`,
+  } as const;
+}
+
+function rowStyle(active: boolean) {
+  return {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    padding: "7px 10px",
+    fontSize: 12,
+    fontFamily: "var(--font-mono)",
+    textAlign: "left" as const,
+    borderRadius: 6,
+    cursor: "pointer",
+    background: active ? "rgba(255,255,255,0.09)" : "transparent",
+    border: `1px solid ${active ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.06)"}`,
+    color: "inherit",
+  } as const;
 }

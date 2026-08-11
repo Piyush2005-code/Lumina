@@ -1,16 +1,286 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-import { sendMessage, type ChatMessage } from "../lib/api.ts";
+
+import ToolCallList from "./ToolCallList.tsx";
+import ApprovalCard from "./ApprovalCard.tsx";
+import {
+  sendMessage, continueTurn, approveCall, rejectCall,
+  type Approval, type ChatResponse, type RoutingPreference, type ToolInvocation,
+} from "../lib/api.ts";
 
 interface ChatPaneProps {
-  provider: string;
-  model: string;
+  provider: string | null;
+  model: string | null;
+  preference: RoutingPreference;
+}
+
+type Entry =
+  | { kind: "user"; id: string; content: string }
+  | {
+      kind: "assistant";
+      id: string;
+      content: string;
+      toolCalls: ToolInvocation[];
+      provider: string;
+      model: string;
+      rationale: string;
+      ms: number;
+      pending: boolean;
+    };
+
+let counter = 0;
+const nextId = () => `entry-${++counter}`;
+
+export default function ChatPane({ provider, model, preference }: ChatPaneProps) {
+
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [pending, setPending] = useState<Approval[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entries, loading, pending]);
+
+  const applyResponse = useCallback((response: ChatResponse) => {
+    setConversationId(response.conversationId);
+    setPending(response.pendingApprovals);
+    setEntries(prev => [...prev, {
+      kind: "assistant",
+      id: nextId(),
+      content: response.response,
+      toolCalls: response.toolCalls,
+      provider: response.provider,
+      model: response.model,
+      rationale: response.routing.rationale,
+      ms: response.routing.ms,
+      pending: response.status === "awaiting_approval",
+    }]);
+  }, []);
+
+  const submit = useCallback(async () => {
+
+    const text = input.trim();
+    if (!text || loading || pending.length > 0) return;
+
+    setError(null);
+    setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+    setEntries(prev => [...prev, { kind: "user", id: nextId(), content: text }]);
+    setLoading(true);
+
+    try {
+      const response = await sendMessage({
+        message: text,
+        preference,
+        ...(conversationId ? { conversationId } : {}),
+        ...(provider ? { provider } : {}),
+        ...(model ? { model } : {}),
+      });
+      applyResponse(response);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [input, loading, pending.length, preference, conversationId, provider, model, applyResponse]);
+
+  /**
+   * Deciding the last outstanding approval resumes the turn. The client sends an
+   * id and a verb — never the arguments — and the backend picks the transcript
+   * back up from the database.
+   */
+  const decide = useCallback(async (id: string, approve: boolean) => {
+
+    setDeciding(true);
+    setError(null);
+
+    try {
+      await (approve ? approveCall(id) : rejectCall(id));
+
+      const remaining = pending.filter(item => item.id !== id);
+      setPending(remaining);
+
+      if (remaining.length === 0 && conversationId) {
+        setLoading(true);
+        try {
+          applyResponse(await continueTurn(conversationId, { preference }));
+        } finally {
+          setLoading(false);
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not record that decision");
+    } finally {
+      setDeciding(false);
+    }
+  }, [pending, conversationId, preference, applyResponse]);
+
+  const resizeTextarea = () => {
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+  };
+
+  const blocked = pending.length > 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "32px 0" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 28px" }}>
+
+          {entries.length === 0 && !loading && <EmptyState />}
+
+          {entries.map(entry =>
+            entry.kind === "user"
+              ? <UserBlock key={entry.id} content={entry.content} />
+              : <AssistantBlock key={entry.id} entry={entry} />
+          )}
+
+          {pending.map(approval => (
+            <ApprovalCard key={approval.id} approval={approval} onDecide={decide} busy={deciding} />
+          ))}
+
+          {loading && <TypingIndicator />}
+
+          {error && (
+            <div
+              style={{
+                border: "1px solid rgba(255,110,110,0.3)",
+                background: "rgba(255,110,110,0.06)",
+                color: "rgba(255,140,140,0.95)",
+                borderRadius: 8,
+                padding: 12,
+                fontSize: 12,
+                fontFamily: "var(--font-mono)",
+                lineHeight: 1.6,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+      </div>
+
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 28px 24px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 10,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              borderRadius: 10,
+              padding: "10px 12px",
+              opacity: blocked ? 0.5 : 1,
+            }}
+          >
+            <textarea
+              ref={textareaRef}
+              value={input}
+              disabled={blocked}
+              placeholder={blocked ? "Waiting on your approval above…" : "Ask Lumina…"}
+              onChange={event => { setInput(event.target.value); resizeTextarea(); }}
+              onKeyDown={event => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void submit();
+                }
+              }}
+              rows={1}
+              style={{
+                flex: 1,
+                resize: "none",
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "rgba(255,255,255,0.9)",
+                fontSize: 13,
+                lineHeight: 1.6,
+                fontFamily: "var(--font-mono)",
+                maxHeight: 160,
+              }}
+            />
+            <button
+              onClick={() => void submit()}
+              disabled={blocked || loading || input.trim().length === 0}
+              style={{
+                background: "none",
+                border: "none",
+                color: "rgba(255,255,255,0.5)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                cursor: "pointer",
+                padding: "4px 2px",
+              }}
+            >
+              send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserBlock({ content }: { content: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 28, fontFamily: "var(--font-mono)" }}>
+      <Label>USER</Label>
+      <div style={{ whiteSpace: "pre-wrap", color: "rgba(255,255,255,0.9)", fontSize: 13, lineHeight: 1.7 }}>
+        {content}
+      </div>
+    </div>
+  );
+}
+
+function AssistantBlock({ entry }: { entry: Extract<Entry, { kind: "assistant" }> }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 28, fontFamily: "var(--font-mono)" }}>
+      <Label>LUMINA</Label>
+
+      <ToolCallList calls={entry.toolCalls} />
+
+      <div className="chat-msg-bot" style={{ color: "rgba(255,255,255,0.9)", fontSize: 13, lineHeight: 1.7 }}>
+        <ReactMarkdown>{entry.content}</ReactMarkdown>
+      </div>
+
+      {!entry.pending && entry.provider !== "none" && (
+        <div
+          title={entry.rationale}
+          style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginTop: 2, letterSpacing: "0.03em" }}
+        >
+          {entry.provider} · {entry.model} · {entry.ms}ms
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Label({ children }: { children: string }) {
+  return (
+    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em" }}>
+      {children}
+    </div>
+  );
 }
 
 function TypingIndicator() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 32 }}>
-      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em" }}>LUMINA</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 28 }}>
+      <Label>LUMINA</Label>
       <div style={{ display: "flex", gap: 6, alignItems: "center", height: 24 }}>
         <div className="typing-dot-mono" />
         <div className="typing-dot-mono" style={{ animationDelay: "0.15s" }} />
@@ -20,236 +290,21 @@ function TypingIndicator() {
   );
 }
 
-function MessageBlock({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.role === "user";
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        marginBottom: 32,
-        fontFamily: "var(--font-mono)",
-      }}
-    >
-      {/* Label */}
-      <div
-        style={{
-          fontSize: 10,
-          color: isUser ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.5)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}
-      >
-        {isUser ? "USER" : "LUMINA"}
-      </div>
-
-      {/* Content */}
-      <div
-        className={isUser ? "chat-msg-user" : "chat-msg-bot"}
-        style={{
-          color: "rgba(255,255,255,0.9)",
-          fontSize: 13,
-          lineHeight: 1.7,
-        }}
-      >
-        {isUser ? (
-          <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
-        ) : (
-          <ReactMarkdown>{msg.content}</ReactMarkdown>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function EmptyState() {
   return (
     <div
       style={{
-        flex: 1,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        opacity: 0.5,
+        minHeight: 240,
+        opacity: 0.45,
         fontFamily: "var(--font-mono)",
         fontSize: 12,
         color: "rgba(255,255,255,0.6)",
-        letterSpacing: "0.02em",
       }}
     >
       [ system ready ]
-    </div>
-  );
-}
-
-export default function ChatPane({ provider, model }: ChatPaneProps) {
-  // Pre-fill some history as requested by the user: "having some chat history so far done"
-  const [history, setHistory] = useState<ChatMessage[]>([
-    { role: "user", content: "Initialize workspace." },
-    { role: "assistant", content: "Workspace initialized. All systems nominal.\nReady for input." }
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [history, loading]);
-
-  const resizeTextarea = () => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
-  };
-
-  const submit = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
-    if (!provider || !model) { setError("No model selected."); return; }
-
-    setError(null);
-    setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-
-    const userMsg: ChatMessage = { role: "user", content: text };
-    setHistory(prev => [...prev, userMsg]);
-    setLoading(true);
-
-    try {
-      const res = await sendMessage({ provider, model, message: text, history });
-      setHistory(prev => [...prev, { role: "assistant", content: res.response }]);
-    } catch (e) {
-      setError((e as Error).message ?? "Error connecting to model.");
-      setHistory(prev => prev.slice(0, -1));
-    } finally {
-      setLoading(false);
-    }
-  }, [input, loading, history, provider, model]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); }
-  };
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflow: "hidden",
-        fontFamily: "var(--font-mono)",
-      }}
-    >
-      {/* Messages Area */}
-      <div
-        id="chat-message-list"
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "40px 60px",
-          display: "flex",
-          flexDirection: "column",
-          maxWidth: 800,
-          margin: "0 auto",
-          width: "100%",
-        }}
-      >
-        {history.length === 0 && !loading && <EmptyState />}
-        {history.map((msg, i) => <MessageBlock key={i} msg={msg} />)}
-        {loading && <TypingIndicator />}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div
-          style={{
-            margin: "0 auto 16px",
-            padding: "8px 16px",
-            background: "rgba(255, 0, 0, 0.1)",
-            borderLeft: "2px solid rgba(255, 50, 50, 0.5)",
-            fontSize: 12,
-            color: "rgba(255, 100, 100, 0.9)",
-            maxWidth: 680,
-            width: "calc(100% - 120px)",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Minimalist Input Bar */}
-      <div
-        style={{
-          padding: "0 60px 40px",
-          display: "flex",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: 680,
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            borderRadius: 4,
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            transition: "border-color 0.2s ease, background 0.2s ease",
-          }}
-          onFocus={e => {
-            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
-          }}
-          onBlur={e => {
-            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)";
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)";
-          }}
-        >
-          <textarea
-            id="chat-input"
-            ref={textareaRef}
-            placeholder="[ type message ]"
-            value={input}
-            onChange={e => { setInput(e.target.value); resizeTextarea(); }}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            disabled={loading}
-            style={{
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              color: "rgba(255,255,255,0.9)",
-              fontSize: 13,
-              fontFamily: "var(--font-mono)",
-              padding: "16px 20px",
-              resize: "none",
-              outline: "none",
-              lineHeight: 1.5,
-              maxHeight: 200,
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              right: 16,
-              bottom: 16,
-              fontSize: 10,
-              color: "rgba(255,255,255,0.3)",
-              pointerEvents: "none",
-              letterSpacing: "0.05em",
-            }}
-          >
-            ⏎
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
