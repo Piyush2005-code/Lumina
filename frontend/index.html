@@ -3,8 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lumina — AI Chat</title>
-    <meta name="description" content="Lumina — a premium offline AI workspace powered by Groq and Gemini." />
+
+    <!--
+      The packaged desktop build loads over file://, where response headers do not
+      exist — so the renderer's Content-Security-Policy has to travel with the
+      document. 'unsafe-inline' is allowed for styles only (Tailwind and the shader
+      library inject <style> elements); scripts get no inline and no eval.
+      connect-src is 'none' on purpose: the renderer reaches the backend through
+      the IPC bridge, never over the network.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000 ws://localhost:5173; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+    />
+
+    <title>Lumina</title>
+    <meta name="description" content="Lumina — a locally-aware AI workspace with human-approved tool use." />
   </head>
   <body>
     <div id="root"></div>
