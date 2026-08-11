@@ -58,7 +58,10 @@ html, body, #root {
 }
 
 /* ─── Scrollbar ──────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; }
+/* `height` matters for horizontal bars exactly as `width` does for vertical
+   ones. Leaving it unset let a stray horizontal scrollbar render at the browser
+   default thickness and swallow most of a single-line input. */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: rgba(59, 130, 246, 0.22);

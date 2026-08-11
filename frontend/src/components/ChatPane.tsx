@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 
 import ToolCallList from "./ToolCallList.tsx";
@@ -48,6 +48,18 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries, loading, pending]);
 
+  /**
+   * Autosize from the value, not from the keystroke — clearing `input` after a
+   * send has to shrink the box back down, and an onChange handler never fires
+   * for that.
+   */
+  useLayoutEffect(() => {
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+  }, [input]);
+
   const applyResponse = useCallback((response: ChatResponse) => {
     setConversationId(response.conversationId);
     setPending(response.pendingApprovals);
@@ -71,7 +83,6 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
 
     setError(null);
     setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     setEntries(prev => [...prev, { kind: "user", id: nextId(), content: text }]);
     setLoading(true);
@@ -89,6 +100,8 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
       setLoading(false);
+      // Focus survives the round trip, so the next message starts by typing.
+      textareaRef.current?.focus();
     }
   }, [input, loading, pending.length, preference, conversationId, provider, model, applyResponse]);
 
@@ -114,6 +127,9 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
           applyResponse(await continueTurn(conversationId, { preference }));
         } finally {
           setLoading(false);
+          // The composer was disabled while approval was outstanding; hand the
+          // caret back now that it is live again.
+          textareaRef.current?.focus();
         }
       }
     } catch (e) {
@@ -122,13 +138,6 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
       setDeciding(false);
     }
   }, [pending, conversationId, preference, applyResponse]);
-
-  const resizeTextarea = () => {
-    const element = textareaRef.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
-  };
 
   const blocked = pending.length > 0;
 
@@ -176,6 +185,14 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
         <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 28px 24px" }}>
           <div
+            /* Only when the click landed on the padding itself — otherwise this
+               would steal the caret mid-drag and break text selection. */
+            onMouseDown={event => {
+              if (event.target === event.currentTarget && !blocked) {
+                event.preventDefault();
+                textareaRef.current?.focus();
+              }
+            }}
             style={{
               display: "flex",
               alignItems: "flex-end",
@@ -185,6 +202,9 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
               borderRadius: 10,
               padding: "10px 12px",
               opacity: blocked ? 0.5 : 1,
+              cursor: blocked ? "default" : "text",
+              /* Belt and braces: the row itself must never scroll sideways. */
+              overflow: "hidden",
             }}
           >
             <textarea
@@ -192,7 +212,7 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
               value={input}
               disabled={blocked}
               placeholder={blocked ? "Waiting on your approval above…" : "Ask Lumina…"}
-              onChange={event => { setInput(event.target.value); resizeTextarea(); }}
+              onChange={event => setInput(event.target.value)}
               onKeyDown={event => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
@@ -202,15 +222,32 @@ export default function ChatPane({ provider, model, preference }: ChatPaneProps)
               rows={1}
               style={{
                 flex: 1,
+                /*
+                 * minWidth: 0 is load-bearing. A flex item defaults to
+                 * min-width: auto, which refuses to shrink below its content's
+                 * intrinsic width — so one long unbroken token (a file path, a
+                 * URL) pushed the textarea wider than the row and produced a
+                 * horizontal scrollbar sitting on top of the text.
+                 */
+                minWidth: 0,
+                width: "100%",
+                display: "block",
                 resize: "none",
                 border: "none",
                 outline: "none",
+                padding: 0,
                 background: "transparent",
                 color: "rgba(255,255,255,0.9)",
                 fontSize: 13,
                 lineHeight: 1.6,
                 fontFamily: "var(--font-mono)",
                 maxHeight: 160,
+                /* Grow downward only; never sideways. */
+                overflowX: "hidden",
+                overflowY: "auto",
+                /* Break a long token rather than letting it force a wider box. */
+                overflowWrap: "anywhere",
+                scrollbarWidth: "thin",
               }}
             />
             <button
