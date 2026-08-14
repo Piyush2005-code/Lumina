@@ -1,0 +1,364 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{booktabs}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\title{\Huge \textbf{Lumina: Personal Laptop AI Assistant}\\[0.3cm]
+\Large Comprehensive Technical Plan \& Architecture Document}
+\author{Project Owner: Your Name}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+\subsection{Project Vision}
+\textbf{Lumina} is a deeply integrated, locally‑aware AI assistant that lives inside a personal laptop. It is not merely a chatbot or a thin wrapper around LLM APIs; it is an \textbf{autonomous agent runtime and orchestration platform} designed from the ground up for full system control, persistent memory, context‑rich coding assistance, and extensible tool use. The primary goal is to learn systems engineering, backend architecture, distributed coordination, memory retrieval, low‑level sandboxing, and AI orchestration — while building something genuinely useful.
+
+\subsection{Core Design Philosophy}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Build, don’t bolt}: Every subsystem is designed and implemented from scratch where it teaches the most (e.g., sandboxed shell execution, memory engine, event bus). Avoids over‑reliance on pre‑built frameworks.
+    \item \textbf{Language‑appropriate}: Use Python for AI glue and rapid prototyping, Go for high‑concurrency backend services, and Rust for low‑level systems components where safety and performance are paramount.
+    \item \textbf{Secure by default}: No direct agent‑to‑shell access. Every tool call passes through a permission layer, validation, and sandboxing.
+    \item \textbf{Scalable memory}: Context management is not just vector search; it uses hierarchical, multi‑modal retrieval that respects workspace boundaries, temporal dynamics, and semantic compression.
+    \item \textbf{Event‑driven backbone}: All internal changes (shell output, file modification, agent lifecycle) are emitted as events, enabling decoupled, observable, and recoverable workflows.
+\end{itemize}
+
+\section{High‑Level Architecture}
+Lumina is organized as a layered system of seven core layers, each composed of independent, well‑defined services.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.9\textwidth]{architecture_overview.png} % Placeholder: replace with a real diagram
+\caption{Lumina high‑level architecture layers.}
+\label{fig:layers}
+\end{figure}
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Agent Runtime Layer} – Orchestrates planning, tool routing, memory access, context assembly, and multi‑agent scheduling.
+    \item \textbf{Tooling / Capability Layer} – Provides isolated, auditable tools for shell, file system, git, email, browser, etc.
+    \item \textbf{Memory \& Context Layer} – Multi‑modal memory: episodic, semantic, workspace‑specific, execution memory, and long‑term summaries.
+    \item \textbf{Sandbox Execution Layer} – Low‑level process isolation (Linux namespaces, seccomp, cgroups) managed through a Rust executor.
+    \item \textbf{AI Orchestration Layer} – Model‑agnostic routing, planning, tool calling, and fallback logic.
+    \item \textbf{Coding Agent Infrastructure} – Codebase indexing, AST parsing, symbol graphs, diff generation, and build pipelines.
+    \item \textbf{Event‑Driven Backend} – Asynchronous event bus connecting all modules, backed by PostgreSQL and message queues.
+\end{enumerate}
+
+\section{Detailed Subsystem Design}
+
+\subsection{Agent Runtime Layer}
+The runtime is the brain of Lumina. It manages the lifecycle of agents and their interactions with tools and memory.
+
+\subsubsection{Core Components}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Planner}: Decomposes user intents into task graphs. Supports hierarchical planning with replanning on failure.
+    \item \textbf{Tool Router}: Maps tool calls to appropriate backend implementations, enforcing permissions and versioning.
+    \item \textbf{Memory Engine}: Retrieves relevant context from the multi‑modal memory system (see Section~\ref{sec:memory}).
+    \item \textbf{Context Builder}: Assembles the final prompt by merging user query, tool definitions, retrieved memory, and workspace state.
+    \item \textbf{Sandbox Executor}: Forwards validated tool calls (e.g., shell commands) to the secure execution layer.
+    \item \textbf{Event Bus Client}: Publishes events (agent.started, tool.called, error.occurred) for observability and recovery.
+    \item \textbf{Permission Layer}: Checks capabilities and user‑defined policies before any tool execution.
+    \item \textbf{Multi‑Agent Scheduler}: Coordinates concurrent sub‑agents, handling resource allocation and task dependencies.
+\end{itemize}
+
+\subsection{Tooling / Capability Layer}
+Every tool is a first‑class entity with a strict interface.
+
+\subsubsection{Tool Manifest (Example)}
+\begin{lstlisting}[language=Python, caption=Tool definition schema]
+{
+  "name": "file_read",
+  "description": "Read a file within allowed workspaces.",
+  "parameters": {
+    "path": {"type": "string", "description": "Absolute path to file"}
+  },
+  "permissions": ["filesystem.read"],
+  "sandbox": "none",  // runs in Rust sandboxed executor
+  "backend": "python" // or "rust" for low-level ops
+}
+\end{lstlisting}
+
+\subsubsection{Implemented Tools (Phase 1)}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Shell}: Execute commands in a containerised shell; capture stdout/stderr, exit codes.
+    \item \textbf{File System}: Read, write, append files; list directories; watch for changes (via inotify).
+    \item \textbf{Git}: Commit, diff, push/pull, branch management.
+    \item \textbf{Email}: Send/receive via SMTP/IMAP; can be expanded to WhatsApp, Signal, etc.
+    \item \textbf{Browser}: Puppeteer‑like control for web research and form filling.
+    \item \textbf{Local Apps}: Launch, focus, and send keystrokes to any desktop application.
+\end{itemize}
+
+\textbf{Critical safety rule:} \emph{Never directly expose an unrestricted shell}. All commands are templated, validated against a whitelist/blacklist, and executed inside a container/namespace with limited capabilities.
+
+\subsection{Memory \& Context Layer}
+\label{sec:memory}
+This subsystem is the intellectual differentiator of Lumina. It enables the agent to maintain coherent, long‑term context across sessions and tasks without bloating the prompt.
+
+\subsubsection{Memory Categories}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Episodic Memory}: Logs of past interactions – shell outputs, agent actions, user corrections. Stored in PostgreSQL (structured timeline) and MongoDB (raw JSON documents).
+    \item \textbf{Semantic Memory}: Factual knowledge about the user, projects, and concepts. Stored as embeddings + graph relationships.
+    \item \textbf{Workspace Memory}: Per‑project context: git diffs, build commands, API specs, dependency trees. Indexed by path and symbol.
+    \item \textbf{Execution Memory}: A temporal trace of all tool calls, their inputs/outputs, and performance metrics. Used for healing and optimisation.
+    \item \textbf{Long‑Term Summary Memory}: Periodic compression of episodic memory into high‑level summaries, stored with recursive LLM‑based condensation.
+\end{itemize}
+
+\subsubsection{Hierarchical Context Retrieval Pipeline}
+Instead of naive top‑k vector search, Lumina uses a multi‑stage pipeline:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Intent Classification}: Identify whether query is about code, past execution, system state, etc.
+    \item \textbf{Memory Type Selection}: Choose which memory sources to query.
+    \item \textbf{Workspace Detection}: Determine which project/repo the query concerns (via active window, file paths, user hint).
+    \item \textbf{Temporal Filtering}: Prioritise recent events or specific time windows.
+    \item \textbf{Semantic Search + Hybrid Retrieval}: Combine vector similarity, keyword BM25, and graph traversal.
+    \item \textbf{Context Compression}: Summarise or trim redundant information using a lightweight local model.
+    \item \textbf{Reranking}: Cross‑encoder model to order candidate chunks by relevance.
+    \item \textbf{Prompt Assembly}: Merge retrieved context with system instructions, tool definitions, and current query.
+\end{enumerate}
+
+\subsubsection{Storage Backend}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{PostgreSQL}: Primary DB for structured metadata, user sessions, agent states, tool logs.
+    \item \textbf{MongoDB}: Unstructured/flexible storage for full chat history, raw tool outputs, and evolving memory documents.
+    \item \textbf{Qdrant (or Chroma)}: Vector database for semantic embeddings. Initially local, with option to scale.
+    \item \textbf{Redis}: Caching and pub/sub for real‑time events.
+\end{itemize}
+
+\subsection{Sandbox Execution Layer}
+The shell utility must be \emph{air‑gapped} from the host.
+
+\subsubsection{Rust‑Based Executor}
+A dedicated Rust service manages:
+\begin{itemize}[leftmargin=*]
+    \item Linux namespaces (mount, PID, network, user) for full container‑like isolation.
+    \item seccomp‑bpf filters to whitelist/blacklist system calls.
+    \item cgroups v2 to limit CPU, memory, and I/O.
+    \item PTY allocation for interactive commands (pseudo‑terminal).
+    \item Streaming output back to the agent via gRPC or WebSockets.
+\end{itemize}
+
+\subsubsection{Execution Flow}
+\begin{enumerate}[leftmargin=*]
+    \item Agent sends a shell tool call (command string, timeout, working directory).
+    \item Permission layer validates that the command is allowed.
+    \item Command is dispatched to the Rust executor, which creates a new namespace and pty session.
+    \item Stdout/stderr are streamed in real time; exit code is captured.
+    \item The executor returns the result and logs the event.
+\end{enumerate}
+
+\subsection{AI Orchestration Layer}
+Lumina must not be tied to a single LLM provider.
+
+\subsubsection{Model Abstraction}
+A unified interface (`LLMProvider`) that routes requests to any backend:
+\begin{itemize}[leftmargin=*]
+    \item OpenAI, Anthropic, Google Gemini, Groq
+    \item Local models via Ollama, LM Studio, vLLM, llama.cpp
+    \item Self‑hosted endpoints
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Unified LLM call]
+def generate(messages: list, tools: list = None, stream: bool = False,
+             model: str = "gpt-4o", provider: str = "openai") -> Response:
+    ...
+\end{lstlisting}
+
+\subsubsection{Agent Planning \& Tool Use}
+Agents follow a ReAct/Plan‑and‑Execute loop. The planner can decompose complex tasks (e.g., ``analyse this repo and suggest optimisations'') into sub‑tasks, each dispatched to specialised sub‑agents (code‑reader, shell‑runner, memory‑searcher). Tool calls are parsed, validated, and executed; results are fed back into the context.
+
+\subsection{Coding Agent Infrastructure}
+A major goal is an AI‑powered software engineering companion that deeply understands codebases.
+
+\subsubsection{Workspace Indexer}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{AST Parsing} with Tree‑sitter (Rust, Python, Go, TypeScript, etc.) to extract functions, classes, imports.
+    \item \textbf{Symbol Graph}: Build a call graph and data‑flow graph for cross‑file reasoning.
+    \item \textbf{Dependency Analysis}: Track library versions, vulnerable packages, and build configurations.
+    \item \textbf{Embedding Generation}: Create vector representations of functions, files, and whole modules using a code‑specific embedding model.
+    \item \textbf{Semantic Search}: Hybrid search (symbol name + vector similarity) to find relevant code snippets.
+\end{itemize}
+
+\subsubsection{Coding Agent Workflows}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Diff Generation}: Propose changes as unified diffs; agent reviews and explains them.
+    \item \textbf{Build \& Test}: Execute `make`, `cargo build`, `pytest` inside sandbox, interpret results.
+    \item \textbf{Debugging}: Correlate error logs with code context and recent git changes.
+    \item \textbf{Refactoring}: Use AST transformations (via tools like `ast-grep`) for safe, structured changes.
+\end{itemize}
+
+\subsection{Event‑Driven Backend}
+Instead of a monolithic API, Lumina uses an internal event bus.
+
+\subsubsection{Event Categories}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{shell.started}, \texttt{shell.completed}, \texttt{shell.failed}
+    \item \texttt{file.created}, \texttt{file.modified}, \texttt{file.deleted}
+    \item \texttt{git.commit}, \texttt{git.pushed}
+    \item \texttt{agent.spawned}, \texttt{agent.task.completed}, \texttt{agent.error}
+    \item \texttt{memory.created}, \texttt{context.updated}
+    \item \texttt{ui.input}, \texttt{ui.output}
+\end{itemize}
+
+Events are produced by all services and consumed by:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Logging \& Observability} (Elasticsearch/Kibana or simple file logger)
+    \item \textbf{Self‑Healing} (see Section~\ref{sec:healing})
+    \item \textbf{Memory Engine} (populate episodic/execution memory)
+    \item \textbf{Notification Service} (push to user’s phone, email)
+\end{itemize}
+
+The backbone can be implemented with Redis Streams, NATS, or RabbitMQ, with PostgreSQL used for durable event storage.
+
+\subsection{Healing Mode}
+\label{sec:healing}
+\textit{Self‑repair} is an ambitious feature, but must be constrained for safety.
+
+\subsubsection{Constrained Healing Protocol}
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Detect Failure}: Agent monitors its own error logs and user feedback.
+    \item \textbf{Analyse}: Read its own source code (with read‑only permission) and recent execution traces.
+    \item \textbf{Propose Patch}: Generate a git diff for the fix.
+    \item \textbf{Test}: Run the test suite in a sandbox; reject if tests fail.
+    \item \textbf{Request Approval}: Display the diff and test results to the user; do not apply automatically.
+    \item \textbf{Apply}: If approved, apply the patch and restart the affected service.
+\end{enumerate}
+
+No direct self‑modification of running binaries is ever allowed. The healing loop is always supervised by the user.
+
+\section{Technology Stack}
+The stack is deliberately multi‑language to maximise learning.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Language} & \textbf{Rationale} \\
+\midrule
+API / Orchestration & Python (FastAPI) & Rich AI ecosystem, rapid prototyping, async support. \\
+High‑Concurrency Services & Go & Efficient goroutines, excellent for event streaming, schedulers, backend workers. \\
+Systems / Sandboxing & Rust & Memory safety, zero‑cost abstractions, perfect for low‑level process isolation and PTY management. \\
+Frontend (optional) & TypeScript + React/Tauri & If a desktop GUI is ever built; Tauri uses Rust for native bindings. \\
+Databases & PostgreSQL, MongoDB, Qdrant, Redis & Structured state, flexible documents, vector search, caching/pub‑sub. \\
+Message Broker & Redis Streams or NATS & Lightweight, high‑throughput internal event bus. \\
+\bottomrule
+\end{tabular}
+\caption{Recommended language choices per subsystem.}
+\end{table}
+
+\section{Development Roadmap}
+
+\subsection{Phase 1 – Core Runtime (Weeks 1–4)}
+\emph{Goal: A minimal but functional agent that can chat and run safe shell commands.}
+\begin{itemize}[leftmargin=*]
+    \item Set up FastAPI project with basic CRUD for conversations.
+    \item Implement `LLMProvider` abstraction (OpenAI + local Ollama).
+    \item Build shell execution tool with Rust sandbox (basic namespace isolation).
+    \item Create a simple file reader/writer tool with permission checks.
+    \item Add token‑based authentication and session management.
+    \item Integrate PostgreSQL for user/session storage.
+\end{itemize}
+
+\subsection{Phase 2 – Memory System (Weeks 5–8)}
+\emph{Goal: Agents remember past interactions and project context.}
+\begin{itemize}[leftmargin=*]
+    \item Set up MongoDB for chat history and unstructured tool logs.
+    \item Implement episodic memory storage and retrieval.
+    \item Integrate Qdrant and compute embeddings for semantic memory.
+    \item Build context retrieval pipeline (intent → workspace → hybrid search → compression).
+    \item Add workspace‑specific memory (per‑project git logs, diffs).
+\end{itemize}
+
+\subsection{Phase 3 – Coding Agent (Weeks 9–14)}
+\emph{Goal: An agent that understands your code and can make safe modifications.}
+\begin{itemize}[leftmargin=*]
+    \item Implement Tree‑sitter‑based code indexer for Python, Rust, Go.
+    \item Create symbol graphs and semantic search over code.
+    \item Build diff generation tool and pull‑request style review.
+    \item Integrate git operations (commit, push, branch).
+    \item Add build/test execution in sandbox.
+\end{itemize}
+
+\subsection{Phase 4 – Multi‑Agent \& Event Backend (Weeks 15–20)}
+\emph{Goal: True orchestration with concurrent agents and an event‑driven backbone.}
+\begin{itemize}[leftmargin=*]
+    \item Design internal event bus with Redis/NATS.
+    \item Implement planner that splits complex tasks into sub‑agents.
+    \item Add multi‑agent scheduler and resource manager.
+    \item Migrate tool logs and state transitions to events.
+    \item Build basic observability dashboard (logs, metrics).
+\end{itemize}
+
+\subsection{Phase 5 – Local OS Control (Weeks 21–26)}
+\emph{Goal: Full laptop integration.}
+\begin{itemize}[leftmargin=*]
+    \item Add email (IMAP/SMTP) tool, WhatsApp (via web automation), calendar.
+    \item File system watcher and reactive workflows (e.g., “when a PDF is added to Downloads, summarise it”).
+    \item Desktop automation (mouse/keyboard control via Python’s `pyautogui` or Rust `enigo`).
+    \item Permission profiles (read‑only, sandboxed, unrestricted – user defined).
+\end{itemize}
+
+\subsection{Phase 6 – Advanced Features (Ongoing)}
+\begin{itemize}[leftmargin=*]
+    \item Healing mode with supervised patching.
+    \item Long‑horizon planning (multi‑day tasks, background monitoring).
+    \item Distributed execution (offload heavy tasks to a home server or cloud).
+    \item Voice interface: integrate on‑device STT (whisper.cpp) and TTS (Piper or Coqui).
+    \item Memory evolution: adaptive compression and knowledge graph merging.
+\end{itemize}
+
+\section{Learning Outcomes}
+By building Lumina incrementally, you will gain deep experience in:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Backend engineering}: REST/gRPC APIs, database design, authentication, message queues.
+    \item \textbf{Distributed systems}: Event‑driven architectures, service decoupling, eventual consistency.
+    \item \textbf{Systems programming}: Linux namespaces, seccomp, file descriptors, PTY, process management (Rust).
+    \item \textbf{AI/ML infrastructure}: Embedding models, vector databases, RAG pipelines, model routing.
+    \item \textbf{Orchestration}: Multi‑agent coordination, planning, tool‑use frameworks.
+    \item \textbf{Developer tools}: ASTs, symbol graphs, static analysis, continuous integration.
+    \item \textbf{Observability}: Structured logging, metrics, tracing, and self‑monitoring.
+\end{itemize}
+
+\section{Conclusion}
+Lumina is more than a personal assistant — it is a platform for exploring the frontier of autonomous systems, memory‑centric AI, and systems‑level programming. By adhering to a disciplined, layer‑by‑layer approach, the project will remain tractable while growing into a genuinely powerful tool. The focus on safety, multi‑language learning, and from‑scratch implementation ensures that every module contributes to a deeper understanding of how modern AI and backend systems truly work.
+
+\vspace{0.5cm}
+\noindent \textit{This document is a living blueprint; it should be revised as design decisions are made and new technologies evaluated.}
+\end{document}

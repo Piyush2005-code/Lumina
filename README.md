@@ -1,71 +1,36 @@
 # Lumina
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Electron](https://img.shields.io/badge/Electron-2B2E3A.svg?logo=electron&logoColor=9FEAF9)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-61DAFB.svg?logo=react&logoColor=white)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-
-**Lumina** is a deeply integrated, locally-aware AI assistant built as an autonomous agent runtime and orchestration platform — not just a chatbot or a thin wrapper around LLM APIs. It's designed for full system control, persistent memory, context-rich coding assistance, and extensible tool use, while doubling as a hands-on project for learning systems engineering, backend architecture, distributed coordination, memory retrieval, low-level sandboxing, and AI orchestration.
-
-<p align="center">
-  <img src="assets/lumina-demo.gif" alt="Lumina demo" width="100%">
-</p>
-
-## Core Design Philosophy
-
-- **Build, don't bolt** — subsystems (sandboxed shell execution, memory engine, event bus) are implemented from scratch where it teaches the most, rather than leaning on pre-built frameworks.
-- **Language-appropriate** — Python for AI glue and rapid prototyping, Go for high-concurrency backend services, Rust for low-level systems components where safety and performance matter.
-- **Secure by default** — no direct agent-to-shell access; every tool call passes through a permission layer, validation, and sandboxing.
-- **Scalable memory** — hierarchical, multi-modal context retrieval rather than naive vector search, respecting workspace boundaries, temporal dynamics, and semantic compression.
-- **Event-driven backbone** — internal changes (shell output, file modification, agent lifecycle) are emitted as events for decoupled, observable, recoverable workflows.
-
-## Architecture
-
-Lumina is organized into seven layered subsystems:
-
-1. **Agent Runtime Layer** — planning, tool routing, memory access, context assembly, multi-agent scheduling.
-2. **Tooling / Capability Layer** — isolated, auditable tools for shell, filesystem, git, email, browser, etc.
-3. **Memory & Context Layer** — episodic, semantic, workspace-specific, execution, and long-term summary memory.
-4. **Sandbox Execution Layer** — process isolation (Linux namespaces, seccomp, cgroups) via a Rust executor.
-5. **AI Orchestration Layer** — model-agnostic routing, planning, tool calling, and fallback logic.
-6. **Coding Agent Infrastructure** — codebase indexing, AST parsing, symbol graphs, diff generation, build pipelines.
-7. **Event-Driven Backend** — an async event bus connecting all modules, backed by PostgreSQL and message queues.
-
-Note that this describes the target architecture. Several layers (sandbox execution, the memory engine, the PostgreSQL-backed event bus) are still planned rather than implemented — see the design doc below for the full technical plan.
-
-See [docs/Lumina.pdf](docs/Lumina.pdf) (or [docs/Lumina.tex](docs/Lumina.tex)) for the full technical plan and architecture document.
-
+[![MCP](https://img.shields.io/badge/Model_Context_Protocol-000000.svg)](https://modelcontextprotocol.io/)
+## Table of Contents
+- [Introduction](#introduction)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Design Principles](#design-principles)
+- [Contributing](#contributing)
+## Introduction
+Lumina is a cross-platform desktop AI assistant built on an agent runtime rather than a chat wrapper. It routes each turn to a model chosen from measured latency and declared capabilities, executes tools through the Model Context Protocol, and refuses to take any action with side effects until a human has approved that specific call.
 ## Project Structure
-
-```
-agents-mcp/
-├── backend/     # Node.js/TypeScript orchestration engine (providers, tools, MCP, websocket streaming)
-├── frontend/    # React + Vite + Tailwind UI (chat pane, workspace layout, voice orb)
-├── servers/     # MCP servers (shell, filesystem, auto-GUI, proxy)
-├── electron/    # Desktop app shell
-├── docs/        # Technical plan and design docs
-└── assets/      # Media assets
-```
-
+The project is organized into the following components:
+- Backend: Node + Express agent runtime — providers, scheduler, MCP client, tool policy, approvals, telemetry, SQLite persistence
+- Frontend: React 19 + Vite + Tailwind renderer
+- Electron: Desktop shell — main process, preload bridge, credential store
+- Servers: Python MCP servers (filesystem, shell, email, auto-GUI)
+- Docs: Full technical plan (Lumina.tex / Lumina.pdf)
 ## Getting Started
-
-The backend and frontend are separate npm packages — install and run each in its own directory.
-
-**Backend**
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-**Frontend**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
+To get started with the project, follow these steps:
+1. Install the dependencies: `npm run install:all`
+2. Start the backend: `npm run dev:backend`
+3. Start the frontend: `npm run dev:frontend`
+4. Start the desktop application: `npm run desktop`
+## Design Principles
+The project is guided by the following design principles:
+- Build, don't bolt — subsystems are implemented where implementing them teaches the most.
+- Secure by default — no unattended path to a side effect; the permission layer is enforced at the executor, not the UI.
+- Explainable, not clever — the scheduler is a deterministic weighted score, and every routing decision reports the numbers behind it.
+- Say only what is true — capability flags, telemetry and this README describe the code that exists.
 ## Contributing
-
-Contributions are welcome — please open a pull request with a clear description of the change, along with any relevant tests or documentation.
+Pull requests are welcome — please include a clear description of the change along with any relevant tests.

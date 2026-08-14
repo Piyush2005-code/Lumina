@@ -1,0 +1,13 @@
+Design a logo for an AI software product called "Lumina". 
+
+Style: Minimalist, modern tech brand. Dark background (#0a0a0f). 
+
+The mark: A stylized letter "L" constructed from clean geometric lines, but where the corner of the L transitions into a soft, glowing arc — suggesting a ray of light being emitted or a sunrise. Inside or adjacent to this arc, a tiny constellation of 3-4 dots connected by thin lines (suggesting a neural network or agent graph). 
+
+Color treatment: The logo mark uses a vibrant gradient flowing from deep orange (#ff6b35) through hot pink (#e8295c) to violet (#9b27cc). The gradient direction is diagonal, bottom-left to top-right. The glow effect is soft — add a bloom/outer glow in orange at ~30% opacity around the mark.
+
+Wordmark: The word "Lumina" in a clean, slightly wide-tracked sans-serif (similar to Inter or Geist). Color: white. Positioned to the right of the mark. The "L" in the wordmark should optionally be replaced by the logomark itself.
+
+Output: Provide the logo on a transparent background AND on the dark (#0a0a0f) background. The mark alone (without wordmark) should work at 40x40px as a favicon/app icon.
+
+Do NOT include: gradients that are too rainbow-y, literal lightbulb imagery, robotic faces, lens flare clichés. Keep it sleek, abstract, and premium.

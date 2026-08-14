@@ -1,0 +1,159 @@
+Build a beautiful, offline-first AI assistant desktop web app called "Lumina" with an IDE-style layout. This is a local autonomous AI agent platform focused on system automation.
+
+---
+
+## VISUAL IDENTITY & THEME
+
+- Background: A rich, deep morphed glassmorphism surface sitting over a dark canvas (#0a0a0f base). Behind all panels, render a slow-moving, animated orange-to-pink-to-purple radial gradient (like molten aurora) — animate it with a looping CSS keyframe that slowly shifts the gradient origin, giving it a living, breathing feel. The gradient colors: #ff6b2b → #e8295c → #9b27cc → #1a0533.
+- All panels and cards: frosted glass (backdrop-filter: blur(24px), background: rgba(255,255,255,0.04), border: 1px solid rgba(255,120,60,0.15)) with subtle orange-pink glow on hover.
+- Typography: "Inter" for UI, "JetBrains Mono" for code/markdown previews. Import both from Google Fonts.
+- Accent color: #ff6b35 (orange) and #e8295c (pink). All interactive elements, borders, highlights, and icons use this palette.
+- No plain white backgrounds anywhere. Everything is dark glass.
+
+---
+
+## LAYOUT — 3-COLUMN IDE STYLE
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  TOPBAR: [Logo placeholder] [Lumina] ........ [Notif] [Status] [⚙] │
+├──────────┬────────────────────────────────────┬────────────────────┤
+│ SIDEBAR  │         CHAT PANEL                 │   PREVIEW PANEL    │
+│ (220px)  │         (flex-grow)                │   (380px)          │
+│          │                                    │                    │
+│ • Chats  │  ┌──────────────────────────────┐  │  📄 Markdown render│
+│ • Files  │  │  [VOICE MODE RIPPLE AREA]    │  │  with syntax       │
+│ • Agents │  │  (shown when mic is active)  │  │  highlighting,     │
+│ • Memory │  └──────────────────────────────┘  │  mermaid diagrams, │
+│ • Tools  │                                    │  diff blocks,      │
+│ • Logs   │  message bubbles scroll here       │  tables, alerts    │
+│          │                                    │                    │
+│          │  ┌──────────────────────────────┐  │  [Tab bar for      │
+│ [Status  │  │ Input + mic + send + attach  │  │   open files]      │
+│  badge]  │  └──────────────────────────────┘  │                    │
+└──────────┴────────────────────────────────────┴────────────────────┘
+```
+
+The layout must be fully resizable — sidebar and preview panel have drag handles. On narrow screens, collapse sidebar to icon-only mode and hide preview panel behind a toggle button.
+
+---
+
+## TOPBAR
+
+- Far left: A 40x40px rounded square placeholder div labeled "LOGO" with a dashed orange border and text "Lumina" in gradient text (linear-gradient from #ff6b35 to #e8295c) in a bold, slightly wide-tracked font next to it.
+- Center: Subtle breadcrumb or active session name.
+- Right side icons (all glass-button style, orange glow on hover):
+  - 🔔 Notifications bell with animated red dot badge when unread. Clicking opens a slide-down notification drawer with glass card items. Each notification has a type icon (info/success/warning/error), message, and relative timestamp. Dismissible per item or "clear all".
+  - ⚡ Status indicator: animated pulsing green dot = "Lumina Running", grey dot = "Offline". Tooltip on hover with latency/status text.
+  - ⚙ Settings icon → opens a slide-over settings panel.
+
+---
+
+## SIDEBAR (left, 220px)
+
+Sections with orange icon + label:
+- 💬 Conversations (list of past chats, searchable)
+- 📁 Files (file tree for watched workspace directory)
+- 🤖 Agents (active/idle agent list with status dots)
+- 🧠 Memory (recent memory entries, searchable)
+- 🔧 Tools (list of available MCP tools with on/off toggles)
+- 📊 Logs (live system log stream)
+
+Each sidebar item on hover: subtle orange left-border highlight and background glow.
+Active item: orange left border 2px solid, slightly brighter glass card.
+
+---
+
+## CHAT PANEL (center)
+
+- Messages scroll upward. Each message bubble:
+  - User: right-aligned, orange-pink gradient border, glass card background.
+  - Assistant: left-aligned, darker glass card with subtle pink left border.
+  - Tool call card: collapsible glass card with orange header showing tool name + status badge (running/done/error). Inside shows input args and output result in monospace. Animated shimmer while running.
+  - System messages: centered, small muted text.
+
+- Message bubbles support inline markdown rendering (bold, code spans, links).
+
+- Below the messages, a fixed input bar (glass card, full width):
+  - Textarea (auto-resize, max 5 lines) with placeholder "Ask Lumina anything…"
+  - Left side buttons: 📎 Attach (file), @ Mention (agent/tool)
+  - Right side: 🎙 Mic button, ➤ Send button (orange gradient fill)
+  - Keyboard: Enter to send, Shift+Enter for newline.
+
+---
+
+## VOICE MODE — RIPPLE ANIMATION
+
+When the mic button is pressed/active, the chat input area transforms:
+
+- The input box smoothly transitions to a dedicated "voice mode" area taking up ~180px height above the input bar.
+- Render an animated canvas/SVG of soft, rippling water rings — concentric circles that pulse outward from the center in sync with a breathing/wave animation. Colors: translucent orange and pink rings on the dark glass background (#ff6b35 at 20-40% opacity).
+- The rings animate continuously while in voice mode: each ring expands outward, fades out, and a new ring spawns from center — like a pebble dropped in water. Use CSS keyframes or a small canvas animation.
+- Center of the ripple: a soft glowing orb that pulses (scale 0.9→1.1, looping).
+- Above the ripple: text "Listening…" in gradient italic text.
+- A ✕ button to exit voice mode back to text input.
+- Smooth fade-in/fade-out transitions on entering/exiting voice mode.
+
+---
+
+## PREVIEW PANEL (right, 380px)
+
+- Tab bar at top with open file names (closable tabs, orange indicator on active tab).
+- Renders Markdown files beautifully:
+  - GitHub Flavored Markdown with:
+    - Fenced code blocks with language label + copy button, syntax highlighting in a dark theme
+    - Mermaid diagram blocks rendered as actual diagrams
+    - Diff blocks: green background for +lines, red for -lines
+    - GitHub-style alert blocks: > [!NOTE], > [!WARNING], > [!CAUTION], > [!IMPORTANT], > [!TIP] — each with a distinct colored left border and icon
+    - Tables with alternating row colors (dark glass)
+    - Inline code in orange-tinted monospace spans
+  - All within the glass panel, scrollable.
+- Top right: "Copy raw" and "Open in editor" icon buttons.
+- If no file open: show a placeholder with the Lumina logo area, text "No preview open", and a subtle drag-to-open hint.
+
+---
+
+## NOTIFICATIONS SYSTEM
+
+- Notification drawer slides down from the top-right when bell is clicked.
+- Glass card, ~360px wide, with a header "Notifications" and "Clear all" button.
+- Each notification entry:
+  - Icon: colored by type (blue=info, green=success, orange=warning, red=error)
+  - Title + short message
+  - Relative time ("2 minutes ago")
+  - Dismiss ✕ button
+  - Subtle hover state
+- Toast notifications (bottom-right of screen) for new incoming notifications: glass card with slide-in + auto-dismiss after 4s. Has a colored left border by type.
+- Show a max of 5 toasts stacked; extras queue.
+
+---
+
+## ANIMATIONS & MICRO-INTERACTIONS
+
+- All panel transitions: 200ms ease-out
+- Button hover: orange glow (box-shadow: 0 0 12px rgba(255,107,53,0.4))
+- Message appear: slide-up + fade-in from bottom
+- Tool call cards: shimmer animation while running (CSS shimmer sweep)
+- Sidebar item hover: 150ms left-border expansion
+- The aurora gradient background: 15s infinite alternate ease-in-out loop
+- Voice ripple rings: 2s infinite ease-out per ring, staggered start delays
+
+---
+
+## ADDITIONAL PAGES / PANELS (accessible from sidebar)
+
+- **Settings panel** (slide-over from right): sections for API Keys (masked input fields for Gemini/OpenAI/Anthropic/OpenRouter), Model selector (dropdown), MCP server list with on/off toggles, Theme (Dark only), Notification preferences.
+- **Logs panel**: live scrolling log stream with colored log levels (DEBUG=grey, INFO=cyan, WARN=orange, ERROR=red). Monospace font. Pause/resume toggle. Filter by level.
+- **Tools panel**: grid of tool cards (glass cards, icon + name + description + enable toggle). Clicking a tool shows its input schema.
+
+---
+
+## TECH NOTES
+
+- Use React with TypeScript.
+- Use Tailwind CSS for layout utilities but define all custom colors, gradients, and animations in index.css.
+- Use `marked` + `highlight.js` + `mermaid` for markdown rendering in the preview panel.
+- Use `react-resizable-panels` for the three-column resizable layout.
+- All WebSocket connections are stubbed/mocked with realistic fake streaming data for preview purposes.
+- The app should feel like a real, running product — populate it with mock conversations, fake tool call history, and sample notifications so it looks alive on first load.
+- Mobile: collapses to single-column with bottom tab navigation.

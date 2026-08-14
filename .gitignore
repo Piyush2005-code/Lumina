@@ -1,19 +1,31 @@
-## remove the virtual environments from pushing
+## Python virtual environments
 **venv/
+__pycache__/
+*.pyc
 
-## Remove the .DS_Store files
+## macOS noise
 **.DS_Store
 
-## Remove the .env files
-**.env*
+## Secrets — never commit these
+**.env
+**.env.*
+!**.env.example
 
-## Removing the artifacts
-**.pdf
-**.tex
+## Build output
+backend/dist/
+frontend/dist/
+electron/dist/
+electron/release/
+node_modules/
 
-## Some Docs
-docs/*
-notes.txt
+## Local runtime state (SQLite database, saved drafts)
+.lumina/
+*.db
+*.db-wal
+*.db-shm
 
-## Frontend node_modules
-lumina-ui/node_modules
+## Scratch
+_to_delete/
+
+## Editor/agent local settings
+**/.claude/settings.local.json

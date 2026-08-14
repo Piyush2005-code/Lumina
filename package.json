@@ -1,0 +1,21 @@
+{
+  "name": "lumina",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lumina — a locally-aware AI agent runtime with capability-aware routing and human-approved tool use",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install && npm --prefix electron install",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build && npm --prefix electron run build",
+    "test": "npm --prefix backend test",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "desktop": "npm --prefix electron run dev",
+    "package": "npm run build && npm --prefix electron run package",
+    "package:mac": "npm run build && npm --prefix electron run package:mac",
+    "package:win": "npm run build && npm --prefix electron run package:win",
+    "package:linux": "npm run build && npm --prefix electron run package:linux"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
