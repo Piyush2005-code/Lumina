@@ -26,6 +26,8 @@ node_modules/
 
 ## Scratch
 _to_delete/
+assets/Lumina Demo.mov
+assets/lumina-demo.mp4
 
 ## Editor/agent local settings
 **/.claude/settings.local.json
